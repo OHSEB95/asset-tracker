@@ -5,16 +5,19 @@ import PrincipalVsValueChart from '../components/charts/PrincipalVsValueChart'
 import DividendsChart from '../components/charts/DividendsChart'
 import RealizedPnlChart from '../components/charts/RealizedPnlChart'
 
-function monthsAgo(n: number): string {
-  const d = new Date()
-  d.setMonth(d.getMonth() - n)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+function startOfCurrentYear(): string {
+  return `${new Date().getFullYear()}-01`
+}
+
+function currentYearMonth(): string {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
 }
 
 function DashboardPage(): React.JSX.Element {
   const { accountTypes } = useAccountsContext()
-  const [from, setFrom] = useState(monthsAgo(11))
-  const [to, setTo] = useState(monthsAgo(0))
+  const [from, setFrom] = useState(startOfCurrentYear())
+  const [to, setTo] = useState(currentYearMonth())
   const [accountTypeCode, setAccountTypeCode] = useState<string>('')
   const [rows, setRows] = useState<MonthlySummaryRow[]>([])
   const [loading, setLoading] = useState(true)
