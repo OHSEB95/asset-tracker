@@ -1,14 +1,14 @@
 import { useState } from 'react'
 import { AccountsProvider } from './state/AccountsContext'
 import SettingsPage from './pages/SettingsPage'
-import MonthlyEntryPage from './pages/MonthlyEntryPage'
+import TransactionEntryPage from './pages/TransactionEntryPage'
 import DashboardPage from './pages/DashboardPage'
 
 type Tab = 'dashboard' | 'entry' | 'settings'
 
 const TABS: Array<{ key: Tab; label: string }> = [
   { key: 'dashboard', label: '대시보드' },
-  { key: 'entry', label: '월별 입력' },
+  { key: 'entry', label: '거래 입력' },
   { key: 'settings', label: '설정' }
 ]
 
@@ -31,7 +31,7 @@ function App(): React.JSX.Element {
         </nav>
         <main className="tab-content">
           {tab === 'dashboard' && <DashboardPage />}
-          {tab === 'entry' && <MonthlyEntryPage />}
+          {tab === 'entry' && <TransactionEntryPage />}
           {tab === 'settings' && <SettingsPage />}
         </main>
       </div>

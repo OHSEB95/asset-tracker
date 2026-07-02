@@ -4,11 +4,16 @@ import type {
   AccountType,
   AppSettings,
   DashboardFilter,
-  MonthlyEntry,
-  MonthlyEntryInput,
+  Holding,
+  HoldingInput,
+  HoldingSnapshot,
   MonthlySummaryRow,
   PriceFetchError,
-  PriceFetchResult
+  PriceFetchResult,
+  PriceSnapshotInput,
+  Transaction,
+  TransactionInput,
+  TransactionListFilter
 } from '@shared/types'
 
 export interface Api {
@@ -21,12 +26,23 @@ export interface Api {
     update(id: number, input: AccountInput): Promise<Account>
     archive(id: number, archived: boolean): Promise<void>
   }
-  entries: {
-    listByMonth(yearMonth: string): Promise<MonthlyEntry[]>
-    upsert(input: MonthlyEntryInput): Promise<MonthlyEntry>
+  holdings: {
+    listForAccount(accountId: number, includeArchived?: boolean): Promise<Holding[]>
+    create(input: HoldingInput): Promise<Holding>
+    update(id: number, input: HoldingInput): Promise<Holding>
+    archive(id: number, archived: boolean): Promise<void>
+    snapshot(holdingId: number): Promise<HoldingSnapshot>
+  }
+  transactions: {
+    listForAccount(filter: TransactionListFilter): Promise<Transaction[]>
+    create(input: TransactionInput): Promise<{ data: Transaction } | { error: string }>
+    delete(id: number): Promise<{ ok: true } | { error: string }>
   }
   prices: {
-    fetch(accountId: number): Promise<PriceFetchResult | PriceFetchError>
+    fetch(holdingId: number): Promise<PriceFetchResult | PriceFetchError>
+  }
+  priceSnapshots: {
+    upsert(input: PriceSnapshotInput): Promise<void>
   }
   settings: {
     get(): Promise<AppSettings>

@@ -1,15 +1,147 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { useAccountsContext } from '../state/AccountsContext'
-import type { AccountInput } from '@shared/types'
+import type { AccountInput, Holding, HoldingInput, PriceSource } from '@shared/types'
 
-const SYMBOL_SOURCE_LABEL: Record<string, string> = {
+const PRICE_SOURCE_LABEL: Record<PriceSource, string> = {
   coingecko: '코인게코 (비트코인 등)',
   naver: '네이버 금융 (국내주식)',
   yahoo: '야후 파이낸스 (해외주식)'
 }
 
-function emptyForm(defaultType: string): AccountInput {
-  return { accountTypeCode: defaultType, name: '', symbol: '', symbolSource: null }
+function emptyAccountForm(defaultType: string): AccountInput {
+  return { accountTypeCode: defaultType, name: '' }
+}
+
+function emptyHoldingForm(accountId: number): HoldingInput {
+  return { accountId, name: '', priceSymbol: '', priceSource: null }
+}
+
+function HoldingsPanel({ accountId }: { accountId: number }): React.JSX.Element {
+  const { refresh } = useAccountsContext()
+  const [holdings, setHoldings] = useState<Holding[]>([])
+  const [form, setForm] = useState<HoldingInput>(emptyHoldingForm(accountId))
+  const [editingId, setEditingId] = useState<number | null>(null)
+
+  async function load(): Promise<void> {
+    const list = await window.api.holdings.listForAccount(accountId)
+    setHoldings(list)
+  }
+
+  useEffect(() => {
+    load()
+  }, [accountId])
+
+  async function handleSubmit(e: React.FormEvent): Promise<void> {
+    e.preventDefault()
+    if (!form.name.trim()) return
+    if (editingId) {
+      await window.api.holdings.update(editingId, form)
+    } else {
+      await window.api.holdings.create(form)
+    }
+    setForm(emptyHoldingForm(accountId))
+    setEditingId(null)
+    await load()
+    await refresh()
+  }
+
+  function startEdit(h: Holding): void {
+    setEditingId(h.id)
+    setForm({
+      accountId,
+      name: h.name,
+      priceSymbol: h.priceSymbol ?? '',
+      priceSource: h.priceSource
+    })
+  }
+
+  async function handleArchive(id: number): Promise<void> {
+    await window.api.holdings.archive(id, true)
+    await load()
+    await refresh()
+  }
+
+  return (
+    <div className="holdings-panel">
+      <h4>보유종목</h4>
+      <form onSubmit={handleSubmit} className="form-grid">
+        <label>
+          종목 이름
+          <input
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            placeholder="예: KODEX 미국 AI 테크 TOP10 타겟 커버드콜"
+          />
+        </label>
+        <label>
+          시세 조회 소스
+          <select
+            value={form.priceSource ?? ''}
+            onChange={(e) =>
+              setForm({ ...form, priceSource: (e.target.value || null) as PriceSource | null })
+            }
+          >
+            <option value="">사용 안 함 (수동 입력만)</option>
+            {Object.entries(PRICE_SOURCE_LABEL).map(([code, label]) => (
+              <option key={code} value={code}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          심볼/티커
+          <input
+            value={form.priceSymbol ?? ''}
+            onChange={(e) => setForm({ ...form, priceSymbol: e.target.value })}
+            placeholder="예: BTC, 005930, AAPL"
+          />
+        </label>
+        <div className="form-actions">
+          <button type="submit">{editingId ? '수정 저장' : '종목 추가'}</button>
+          {editingId && (
+            <button
+              type="button"
+              onClick={() => {
+                setEditingId(null)
+                setForm(emptyHoldingForm(accountId))
+              }}
+            >
+              취소
+            </button>
+          )}
+        </div>
+      </form>
+
+      {holdings.length > 0 && (
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>이름</th>
+              <th>심볼</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {holdings.map((h) => (
+              <tr key={h.id}>
+                <td>{h.name}</td>
+                <td>{h.priceSymbol ?? '-'}</td>
+                <td className="row-actions">
+                  <button type="button" onClick={() => startEdit(h)}>
+                    수정
+                  </button>
+                  <button type="button" onClick={() => handleArchive(h.id)}>
+                    보관
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  )
 }
 
 function SettingsPage(): React.JSX.Element {
@@ -17,8 +149,9 @@ function SettingsPage(): React.JSX.Element {
   const [dataDir, setDataDir] = useState<string>('')
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
-  const [form, setForm] = useState<AccountInput>(emptyForm(''))
+  const [form, setForm] = useState<AccountInput>(emptyAccountForm(''))
   const [editingId, setEditingId] = useState<number | null>(null)
+  const [expandedId, setExpandedId] = useState<number | null>(null)
 
   useEffect(() => {
     window.api.settings.get().then((s) => setDataDir(s.dataDirPath ?? ''))
@@ -26,7 +159,7 @@ function SettingsPage(): React.JSX.Element {
 
   useEffect(() => {
     if (!form.accountTypeCode && accountTypes.length > 0) {
-      setForm(emptyForm(accountTypes[0].code))
+      setForm(emptyAccountForm(accountTypes[0].code))
     }
   }, [accountTypes, form.accountTypeCode])
 
@@ -45,24 +178,15 @@ function SettingsPage(): React.JSX.Element {
     }
   }
 
-  function isMarketType(code: string): boolean {
-    return accountTypes.find((t) => t.code === code)?.isMarketPriced ?? false
-  }
-
   async function handleSubmit(e: React.FormEvent): Promise<void> {
     e.preventDefault()
     if (!form.name.trim()) return
-    const payload: AccountInput = {
-      ...form,
-      symbol: isMarketType(form.accountTypeCode) ? form.symbol || null : null,
-      symbolSource: isMarketType(form.accountTypeCode) ? form.symbolSource : null
-    }
     if (editingId) {
-      await window.api.accounts.update(editingId, payload)
+      await window.api.accounts.update(editingId, form)
     } else {
-      await window.api.accounts.create(payload)
+      await window.api.accounts.create(form)
     }
-    setForm(emptyForm(accountTypes[0]?.code ?? ''))
+    setForm(emptyAccountForm(accountTypes[0]?.code ?? ''))
     setEditingId(null)
     await refresh()
   }
@@ -71,12 +195,7 @@ function SettingsPage(): React.JSX.Element {
     const acct = accounts.find((a) => a.id === id)
     if (!acct) return
     setEditingId(id)
-    setForm({
-      accountTypeCode: acct.accountTypeCode,
-      name: acct.name,
-      symbol: acct.symbol ?? '',
-      symbolSource: acct.symbolSource
-    })
+    setForm({ accountTypeCode: acct.accountTypeCode, name: acct.name })
   }
 
   async function handleArchive(id: number): Promise<void> {
@@ -123,37 +242,6 @@ function SettingsPage(): React.JSX.Element {
               placeholder="예: 업비트 BTC, 미래에셋 IRP"
             />
           </label>
-          {isMarketType(form.accountTypeCode) && (
-            <>
-              <label>
-                시세 조회 소스
-                <select
-                  value={form.symbolSource ?? ''}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      symbolSource: (e.target.value || null) as AccountInput['symbolSource']
-                    })
-                  }
-                >
-                  <option value="">사용 안 함 (수동 입력만)</option>
-                  {Object.entries(SYMBOL_SOURCE_LABEL).map(([code, label]) => (
-                    <option key={code} value={code}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                심볼/티커
-                <input
-                  value={form.symbol ?? ''}
-                  onChange={(e) => setForm({ ...form, symbol: e.target.value })}
-                  placeholder="예: BTC, 005930, AAPL"
-                />
-              </label>
-            </>
-          )}
           <div className="form-actions">
             <button type="submit">{editingId ? '수정 저장' : '계좌 추가'}</button>
             {editingId && (
@@ -161,7 +249,7 @@ function SettingsPage(): React.JSX.Element {
                 type="button"
                 onClick={() => {
                   setEditingId(null)
-                  setForm(emptyForm(accountTypes[0]?.code ?? ''))
+                  setForm(emptyAccountForm(accountTypes[0]?.code ?? ''))
                 }}
               >
                 취소
@@ -178,21 +266,31 @@ function SettingsPage(): React.JSX.Element {
             <tr>
               <th>유형</th>
               <th>이름</th>
-              <th>심볼</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
             {accounts.map((a) => (
-              <tr key={a.id}>
-                <td>{accountTypes.find((t) => t.code === a.accountTypeCode)?.labelKo}</td>
-                <td>{a.name}</td>
-                <td>{a.symbol ?? '-'}</td>
-                <td className="row-actions">
-                  <button onClick={() => startEdit(a.id)}>수정</button>
-                  <button onClick={() => handleArchive(a.id)}>보관</button>
-                </td>
-              </tr>
+              <Fragment key={a.id}>
+                <tr>
+                  <td>{accountTypes.find((t) => t.code === a.accountTypeCode)?.labelKo}</td>
+                  <td>{a.name}</td>
+                  <td className="row-actions">
+                    <button onClick={() => setExpandedId(expandedId === a.id ? null : a.id)}>
+                      {expandedId === a.id ? '종목 닫기' : '종목 관리'}
+                    </button>
+                    <button onClick={() => startEdit(a.id)}>수정</button>
+                    <button onClick={() => handleArchive(a.id)}>보관</button>
+                  </td>
+                </tr>
+                {expandedId === a.id && (
+                  <tr>
+                    <td colSpan={3}>
+                      <HoldingsPanel accountId={a.id} />
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
             ))}
           </tbody>
         </table>

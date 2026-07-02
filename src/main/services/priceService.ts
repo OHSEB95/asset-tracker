@@ -1,4 +1,4 @@
-import type { Account, PriceFetchError, PriceFetchResult } from '@shared/types'
+import type { Holding, PriceFetchError, PriceFetchResult } from '@shared/types'
 
 const CACHE_TTL_MS = 60_000
 const priceCache = new Map<string, { result: PriceFetchResult; expiresAt: number }>()
@@ -57,31 +57,31 @@ async function fetchYahooForeignPrice(symbol: string): Promise<PriceFetchResult>
   }
 }
 
-export async function fetchPriceForAccount(
-  account: Account
+export async function fetchPriceForHolding(
+  holding: Holding
 ): Promise<PriceFetchResult | PriceFetchError> {
-  if (!account.symbol || !account.symbolSource) {
-    return { error: '이 계좌에는 시세 조회용 심볼이 설정되어 있지 않습니다.' }
+  if (!holding.priceSymbol || !holding.priceSource) {
+    return { error: '이 보유종목에는 시세 조회용 심볼이 설정되어 있지 않습니다.' }
   }
 
-  const key = cacheKey(account.symbolSource, account.symbol)
+  const key = cacheKey(holding.priceSource, holding.priceSymbol)
   const cached = priceCache.get(key)
   if (cached && cached.expiresAt > Date.now()) return cached.result
 
   try {
     let result: PriceFetchResult
-    switch (account.symbolSource) {
+    switch (holding.priceSource) {
       case 'coingecko':
-        result = await fetchCoingeckoPrice(account.symbol)
+        result = await fetchCoingeckoPrice(holding.priceSymbol)
         break
       case 'naver':
-        result = await fetchNaverDomesticPrice(account.symbol)
+        result = await fetchNaverDomesticPrice(holding.priceSymbol)
         break
       case 'yahoo':
-        result = await fetchYahooForeignPrice(account.symbol)
+        result = await fetchYahooForeignPrice(holding.priceSymbol)
         break
       default:
-        return { error: `알 수 없는 시세 소스: ${account.symbolSource}` }
+        return { error: `알 수 없는 시세 소스: ${holding.priceSource}` }
     }
     priceCache.set(key, { result, expiresAt: Date.now() + CACHE_TTL_MS })
     return result

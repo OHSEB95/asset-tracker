@@ -28,15 +28,14 @@ function backupBeforeOpen(dataDir: string, dbPath: string): void {
 
 function seedAccountTypes(instance: Database.Database): void {
   const insert = instance.prepare(
-    `INSERT OR IGNORE INTO account_types (code, label_ko, is_market_priced, sort_order)
-     VALUES (@code, @labelKo, @isMarketPriced, @sortOrder)`
+    `INSERT OR IGNORE INTO account_types (code, label_ko, sort_order)
+     VALUES (@code, @labelKo, @sortOrder)`
   )
   const tx = instance.transaction(() => {
     for (const type of DEFAULT_ACCOUNT_TYPES) {
       insert.run({
         code: type.code,
         labelKo: type.labelKo,
-        isMarketPriced: type.isMarketPriced ? 1 : 0,
         sortOrder: type.sortOrder
       })
     }

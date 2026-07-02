@@ -4,7 +4,8 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { openDatabase, closeDatabase } from './db'
 import { readSettings } from './services/settingsStore'
 import { registerAccountsIpc } from './ipc/accounts'
-import { registerEntriesIpc } from './ipc/entries'
+import { registerHoldingsIpc } from './ipc/holdings'
+import { registerTransactionsIpc } from './ipc/transactions'
 import { registerPricesIpc } from './ipc/prices'
 import { registerSettingsIpc } from './ipc/settings'
 import { registerDashboardIpc } from './ipc/dashboard'
@@ -70,7 +71,8 @@ app.whenReady().then(() => {
   }
 
   registerAccountsIpc()
-  registerEntriesIpc()
+  registerHoldingsIpc()
+  registerTransactionsIpc()
   registerPricesIpc()
   registerSettingsIpc()
   registerDashboardIpc()
