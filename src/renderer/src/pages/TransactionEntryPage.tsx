@@ -170,12 +170,12 @@ function TransactionEntryPage(): React.JSX.Element {
     <div className="page">
       <section className="card">
         <h2>거래 입력</h2>
-        <form onSubmit={handleSubmit} className="form-grid">
-          <label>
+        <form onSubmit={handleSubmit} className="tx-form">
+          <label className="field-date">
             날짜
             <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           </label>
-          <label>
+          <label className="field-account">
             계좌
             <select
               value={accountId ?? ''}
@@ -196,7 +196,7 @@ function TransactionEntryPage(): React.JSX.Element {
               })}
             </select>
           </label>
-          <label>
+          <label className="field-type">
             거래유형
             <select value={type} onChange={(e) => setType(e.target.value as TransactionType)}>
               {Object.entries(TYPE_LABEL).map(([code, label]) => (
@@ -209,7 +209,7 @@ function TransactionEntryPage(): React.JSX.Element {
 
           {(type === 'BUY' || type === 'SELL') && (
             <>
-              <label>
+              <label className="field-holding">
                 종목
                 <select
                   value={holdingId ?? ''}
@@ -223,7 +223,7 @@ function TransactionEntryPage(): React.JSX.Element {
                   ))}
                 </select>
               </label>
-              <label>
+              <label className="field-qty">
                 수량
                 <input
                   type="number"
@@ -232,7 +232,7 @@ function TransactionEntryPage(): React.JSX.Element {
                   onChange={(e) => setQuantity(e.target.value)}
                 />
               </label>
-              <label>
+              <label className="field-price">
                 단가
                 <input
                   type="number"
@@ -241,17 +241,11 @@ function TransactionEntryPage(): React.JSX.Element {
                   onChange={(e) => setPrice(e.target.value)}
                 />
               </label>
-              {quantity && price && !Number.isNaN(parseFloat(quantity) * parseFloat(price)) && (
-                <p className="muted">
-                  {type === 'BUY' ? '예수금 차감' : '예수금 증가'}:{' '}
-                  {formatWon(parseFloat(quantity) * parseFloat(price))}
-                </p>
-              )}
             </>
           )}
 
           {(type === 'DEPOSIT' || type === 'WITHDRAWAL' || type === 'DIVIDEND') && (
-            <label>
+            <label className="field-amount">
               금액
               <input
                 type="number"
@@ -262,7 +256,7 @@ function TransactionEntryPage(): React.JSX.Element {
           )}
 
           {type === 'DIVIDEND' && accountHoldings.length > 0 && (
-            <label>
+            <label className="field-holding">
               종목 (선택)
               <select
                 value={holdingId ?? ''}
@@ -278,16 +272,26 @@ function TransactionEntryPage(): React.JSX.Element {
             </label>
           )}
 
-          <label>
+          <label className="field-note">
             메모
             <input value={note} onChange={(e) => setNote(e.target.value)} />
           </label>
 
-          <div className="form-actions">
+          <div className="form-actions field-actions">
             <button type="submit" disabled={saving || accountId == null}>
               {saving ? '저장 중…' : '거래 저장'}
             </button>
           </div>
+
+          {(type === 'BUY' || type === 'SELL') &&
+            quantity &&
+            price &&
+            !Number.isNaN(parseFloat(quantity) * parseFloat(price)) && (
+              <p className="muted field-hint">
+                {type === 'BUY' ? '예수금 차감' : '예수금 증가'}:{' '}
+                {formatWon(parseFloat(quantity) * parseFloat(price))}
+              </p>
+            )}
         </form>
         {formError && <p className="error-text">{formError}</p>}
       </section>

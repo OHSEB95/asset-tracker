@@ -17,7 +17,7 @@ function formatWon(value: unknown): string {
 
 function PrincipalVsValueChart({ data }: { data: MonthlySummaryRow[] }): React.JSX.Element {
   return (
-    <ResponsiveContainer width="100%" height={340}>
+    <ResponsiveContainer width="100%" height="100%">
       <ComposedChart data={data} margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" />
         <XAxis dataKey="yearMonth" />

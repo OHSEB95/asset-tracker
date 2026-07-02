@@ -3,7 +3,7 @@ import type { MonthlySummaryRow } from '@shared/types'
 
 function RealizedPnlChart({ data }: { data: MonthlySummaryRow[] }): React.JSX.Element {
   return (
-    <ResponsiveContainer width="100%" height={280}>
+    <ResponsiveContainer width="100%" height="100%">
       <BarChart data={data} margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" />
         <XAxis dataKey="yearMonth" />

@@ -42,68 +42,78 @@ function DashboardPage(): React.JSX.Element {
   const totalGain = latest ? latest.valuation - latest.cumulativeContribution : 0
 
   return (
-    <div className="page">
-      <section className="card filter-bar">
-        <label>
-          시작월
-          <input type="month" value={from} onChange={(e) => setFrom(e.target.value)} />
-        </label>
-        <label>
-          종료월
-          <input type="month" value={to} onChange={(e) => setTo(e.target.value)} />
-        </label>
-        <label>
-          계좌 유형
-          <select value={accountTypeCode} onChange={(e) => setAccountTypeCode(e.target.value)}>
-            <option value="">전체</option>
-            {accountTypes.map((t) => (
-              <option key={t.code} value={t.code}>
-                {t.labelKo}
-              </option>
-            ))}
-          </select>
-        </label>
+    <div className="dashboard-page">
+      <section className="card dashboard-topbar">
+        <div className="filter-group">
+          <label>
+            시작월
+            <input type="month" value={from} onChange={(e) => setFrom(e.target.value)} />
+          </label>
+          <label>
+            종료월
+            <input type="month" value={to} onChange={(e) => setTo(e.target.value)} />
+          </label>
+          <label>
+            계좌 유형
+            <select value={accountTypeCode} onChange={(e) => setAccountTypeCode(e.target.value)}>
+              <option value="">전체</option>
+              {accountTypes.map((t) => (
+                <option key={t.code} value={t.code}>
+                  {t.labelKo}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        {latest && (
+          <div className="summary-group">
+            <div>
+              <span className="summary-label">누적 원금</span>
+              <span className="summary-value">
+                {Math.round(latest.cumulativeContribution).toLocaleString()}원
+              </span>
+            </div>
+            <div>
+              <span className="summary-label">총 평가자산</span>
+              <span className="summary-value">{Math.round(latest.valuation).toLocaleString()}원</span>
+            </div>
+            <div>
+              <span className={`summary-label ${totalGain >= 0 ? 'gain' : 'loss'}`}>평가손익</span>
+              <span className={`summary-value ${totalGain >= 0 ? 'gain' : 'loss'}`}>
+                {totalGain >= 0 ? '+' : ''}
+                {Math.round(totalGain).toLocaleString()}원
+              </span>
+            </div>
+          </div>
+        )}
       </section>
 
-      {latest && (
-        <section className="card summary-strip">
-          <div>
-            <span className="summary-label">누적 원금</span>
-            <span className="summary-value">{Math.round(latest.cumulativeContribution).toLocaleString()}원</span>
-          </div>
-          <div>
-            <span className="summary-label">총 평가자산</span>
-            <span className="summary-value">{Math.round(latest.valuation).toLocaleString()}원</span>
-          </div>
-          <div>
-            <span className={`summary-label ${totalGain >= 0 ? 'gain' : 'loss'}`}>평가손익</span>
-            <span className={`summary-value ${totalGain >= 0 ? 'gain' : 'loss'}`}>
-              {totalGain >= 0 ? '+' : ''}
-              {Math.round(totalGain).toLocaleString()}원
-            </span>
-          </div>
-        </section>
-      )}
-
       {!loading && rows.length === 0 && (
-        <p className="muted">선택한 기간에 입력된 데이터가 없습니다. 월별 입력 화면에서 데이터를 추가해주세요.</p>
+        <p className="muted">선택한 기간에 입력된 데이터가 없습니다. 거래 입력 화면에서 데이터를 추가해주세요.</p>
       )}
 
       {rows.length > 0 && (
-        <>
-          <section className="card">
+        <div className="dashboard-charts">
+          <section className="card chart-card chart-main">
             <h3>원금누적 vs 총평가자산</h3>
-            <PrincipalVsValueChart data={rows} />
+            <div className="chart-body">
+              <PrincipalVsValueChart data={rows} />
+            </div>
           </section>
-          <section className="card">
+          <section className="card chart-card chart-secondary">
             <h3>월별 배당</h3>
-            <DividendsChart data={rows} />
+            <div className="chart-body">
+              <DividendsChart data={rows} />
+            </div>
           </section>
-          <section className="card">
+          <section className="card chart-card chart-secondary">
             <h3>월별 매도손익</h3>
-            <RealizedPnlChart data={rows} />
+            <div className="chart-body">
+              <RealizedPnlChart data={rows} />
+            </div>
           </section>
-        </>
+        </div>
       )}
     </div>
   )

@@ -126,6 +126,68 @@ body {
   gap: 8px;
 }
 
+/* 거래 입력 폼: 필드별로 필요한 만큼만 너비를 배분 */
+.tx-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+}
+
+.tx-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.tx-form input,
+.tx-form select {
+  width: 100%;
+}
+
+.field-date {
+  flex: 0 1 140px;
+}
+
+.field-account {
+  flex: 1.2 1 170px;
+}
+
+.field-type {
+  flex: 0 1 90px;
+}
+
+.field-holding {
+  flex: 1.6 1 200px;
+}
+
+.field-qty {
+  flex: 0 1 90px;
+}
+
+.field-price {
+  flex: 0 1 110px;
+}
+
+.field-amount {
+  flex: 0 1 140px;
+}
+
+.field-note {
+  flex: 3 1 260px;
+}
+
+.field-actions {
+  flex: 0 0 auto;
+}
+
+.field-hint {
+  flex-basis: 100%;
+  margin: 0;
+}
+
 input,
 select {
   padding: 7px 9px;
@@ -207,31 +269,6 @@ button:disabled {
   width: fit-content;
 }
 
-.filter-bar {
-  display: flex;
-  gap: 20px;
-  flex-wrap: wrap;
-}
-
-.filter-bar label {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 12px;
-  color: var(--muted);
-}
-
-.summary-strip {
-  display: flex;
-  gap: 32px;
-}
-
-.summary-strip > div {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
 .summary-label {
   font-size: 12px;
   color: var(--muted);
@@ -250,4 +287,74 @@ button:disabled {
 .summary-value.loss,
 .summary-label.loss {
   color: var(--loss);
+}
+
+/* 대시보드: 스크롤 없이 창 크기에 맞춰 늘어나는 레이아웃 */
+.dashboard-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 12px;
+}
+
+.dashboard-topbar {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.dashboard-topbar .filter-group {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.dashboard-topbar .filter-group label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.dashboard-topbar .summary-group {
+  display: flex;
+  gap: clamp(16px, 3vw, 40px);
+}
+
+.dashboard-topbar .summary-group > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dashboard-charts {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 12px;
+}
+
+.chart-main {
+  grid-row: 1 / 3;
+}
+
+.chart-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.chart-card h3 {
+  flex: 0 0 auto;
+}
+
+.chart-body {
+  flex: 1 1 auto;
+  min-height: 0;
 }
