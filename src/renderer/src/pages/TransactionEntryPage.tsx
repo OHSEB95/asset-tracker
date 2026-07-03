@@ -297,7 +297,7 @@ function TransactionEntryPage(): React.JSX.Element {
     !(isSavingsAccount && type === 'CLOSE' && (closeBalance == null || closeBalance <= 0))
 
   return (
-    <div className="page">
+    <div className="entry-page">
       <section className="card">
         <div className="section-header">
           <h2>거래 내역</h2>
@@ -312,7 +312,7 @@ function TransactionEntryPage(): React.JSX.Element {
           )}
         </div>
 
-        <div className="tx-form">
+        <div className="tx-form asset-type-row">
           <label className="field-type">
             자산유형
             <select value={assetTypeCode} onChange={(e) => setAssetTypeCode(e.target.value)}>
@@ -436,12 +436,10 @@ function TransactionEntryPage(): React.JSX.Element {
             )}
 
             {isSavingsAccount && type === 'CLOSE' && (
-              <div className="field-amount">
-                <span>해지 금액</span>
-                <div>
-                  {closeBalance != null ? displayMoney(closeBalance) : '조회 중…'} (현재 잔액 전액)
-                </div>
-              </div>
+              <label className="field-amount">
+                해지 금액
+                <input value={closeBalance != null ? '전액' : '조회 중…'} readOnly />
+              </label>
             )}
 
             {type === 'DIVIDEND' && !isSavingsAccount && accountHoldings.length > 0 && (
@@ -478,57 +476,61 @@ function TransactionEntryPage(): React.JSX.Element {
         {formError && <p className="error-text">{formError}</p>}
       </section>
 
-      <section className="card">
+      <section className="card tx-history-card">
         <h3>최근 거래</h3>
         {deleteError && <p className="error-text">{deleteError}</p>}
-        {transactions.length === 0 ? (
-          <p className="muted">아직 입력된 거래가 없습니다.</p>
-        ) : (
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>날짜</th>
-                <th>유형</th>
-                <th>{productLabel}</th>
-                {!hideStockColumns && <th>수량</th>}
-                {!hideStockColumns && <th>단가</th>}
-                <th>금액</th>
-                {!hideStockColumns && <th>매도손익</th>}
-                <th>메모</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {transactions.map((t) => (
-                <tr key={t.id}>
-                  <td>{t.date}</td>
-                  <td>{TYPE_LABEL[t.type]}</td>
-                  <td>{holdings.find((h) => h.id === t.holdingId)?.name ?? '-'}</td>
-                  {!hideStockColumns && (
-                    <td>{t.quantity != null ? t.quantity.toLocaleString() : '-'}</td>
-                  )}
-                  {!hideStockColumns && <td>{t.price != null ? displayMoneyForTx(t, t.price) : '-'}</td>}
-                  <td>
-                    {t.amount != null
-                      ? displayMoneyForTx(t, t.amount)
-                      : t.quantity != null && t.price != null
-                        ? displayMoneyForTx(t, t.quantity * t.price)
-                        : '-'}
-                  </td>
-                  {!hideStockColumns && (
-                    <td>{t.realizedPnl != null ? displayMoneyForTx(t, t.realizedPnl) : '-'}</td>
-                  )}
-                  <td>{t.note ?? '-'}</td>
-                  <td>
-                    <button type="button" onClick={() => handleDelete(t.id)}>
-                      삭제
-                    </button>
-                  </td>
+        <div className="tx-history-body">
+          {transactions.length === 0 ? (
+            <p className="muted">아직 입력된 거래가 없습니다.</p>
+          ) : (
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>날짜</th>
+                  <th>유형</th>
+                  <th>{productLabel}</th>
+                  {!hideStockColumns && <th>수량</th>}
+                  {!hideStockColumns && <th>단가</th>}
+                  <th>금액</th>
+                  {!hideStockColumns && <th>매도손익</th>}
+                  <th>메모</th>
+                  <th></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+              </thead>
+              <tbody>
+                {transactions.map((t) => (
+                  <tr key={t.id}>
+                    <td>{t.date}</td>
+                    <td>{TYPE_LABEL[t.type]}</td>
+                    <td>{holdings.find((h) => h.id === t.holdingId)?.name ?? '-'}</td>
+                    {!hideStockColumns && (
+                      <td>{t.quantity != null ? t.quantity.toLocaleString() : '-'}</td>
+                    )}
+                    {!hideStockColumns && (
+                      <td>{t.price != null ? displayMoneyForTx(t, t.price) : '-'}</td>
+                    )}
+                    <td>
+                      {t.amount != null
+                        ? displayMoneyForTx(t, t.amount)
+                        : t.quantity != null && t.price != null
+                          ? displayMoneyForTx(t, t.quantity * t.price)
+                          : '-'}
+                    </td>
+                    {!hideStockColumns && (
+                      <td>{t.realizedPnl != null ? displayMoneyForTx(t, t.realizedPnl) : '-'}</td>
+                    )}
+                    <td>{t.note ?? '-'}</td>
+                    <td>
+                      <button type="button" onClick={() => handleDelete(t.id)}>
+                        삭제
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
       </section>
     </div>
   )

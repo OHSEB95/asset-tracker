@@ -264,6 +264,76 @@ button:disabled {
   width: 80px;
 }
 
+.price-placeholder {
+  display: inline-block;
+  width: 80px;
+  padding: 7px 9px;
+  border: 1px solid transparent;
+  font-size: 13px;
+  box-sizing: border-box;
+}
+
+.holdings-table {
+  table-layout: fixed;
+}
+
+.col-type {
+  width: 8%;
+}
+
+.col-account {
+  width: 13%;
+}
+
+.col-product {
+  width: 22%;
+}
+
+.col-value {
+  width: 13%;
+}
+
+.col-type,
+.col-account,
+.col-product {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.value-cell {
+  font-weight: 500;
+}
+
+/* 거래내역: 자산유형 선택 행과 아래 내용 사이 여백 */
+.asset-type-row {
+  margin-bottom: 14px;
+}
+
+/* 거래내역: 화면 크기에 맞춰 늘어나고, 최근 거래만 내부 스크롤되는 레이아웃 */
+.entry-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 16px;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.tx-history-card {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.tx-history-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
 .data-table {
   width: 100%;
   border-collapse: collapse;

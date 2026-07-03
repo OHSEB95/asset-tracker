@@ -134,16 +134,16 @@ function HoldingsPage(): React.JSX.Element {
         {rows.length === 0 ? (
           <p className="muted">등록된 보유종목이 없습니다.</p>
         ) : (
-          <table className="data-table compact-table">
+          <table className="data-table compact-table holdings-table">
             <thead>
               <tr>
-                <th>계좌유형</th>
-                <th>계좌명</th>
-                <th>종목/상품</th>
+                <th className="col-type">계좌유형</th>
+                <th className="col-account">계좌명</th>
+                <th className="col-product">종목/상품</th>
                 <th>보유수량</th>
                 <th>평단가</th>
                 <th className="price-col-narrow">현재가</th>
-                <th>가치</th>
+                <th className="col-value">가치</th>
                 <th>수익률</th>
                 <th>수익금</th>
               </tr>
@@ -160,14 +160,14 @@ function HoldingsPage(): React.JSX.Element {
                     : null
                 return (
                   <tr key={holding.id}>
-                    <td>{typeLabel}</td>
-                    <td>{account?.name}</td>
-                    <td>{holding.name}</td>
+                    <td className="col-type">{typeLabel}</td>
+                    <td className="col-account">{account?.name}</td>
+                    <td className="col-product">{holding.name}</td>
                     <td>{!savings && snap?.quantity != null ? snap.quantity.toLocaleString() : '-'}</td>
                     <td>{!savings && snap?.avgCost != null ? formatMoney(snap.avgCost, currency) : '-'}</td>
                     <td className="valuation-cell price-col-narrow">
                       {savings ? (
-                        '-'
+                        <span className="price-placeholder">-</span>
                       ) : (
                         <NumberInput
                           value={rawInput}
@@ -175,7 +175,7 @@ function HoldingsPage(): React.JSX.Element {
                         />
                       )}
                     </td>
-                    <td>{formatKrw(value)}</td>
+                    <td className="col-value value-cell">{formatKrw(value)}</td>
                     <td className={profitRate == null ? '' : profitRate >= 0 ? 'gain' : 'loss'}>
                       {profitRate != null ? `${profitRate.toFixed(2)}%` : '-'}
                     </td>
