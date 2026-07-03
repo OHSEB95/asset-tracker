@@ -56,7 +56,15 @@ function migrateTransactionsAdjustCash(db: Database.Database): void {
   `)
 }
 
-export const MIGRATIONS: Migration[] = [{ version: 1, up: migrateTransactionsAdjustCash }]
+/** 청년도약계좌 -> 안전자산 명칭 변경 (기존 DB에 이미 시드된 라벨 갱신) */
+function migrateYouthSavingsLabel(db: Database.Database): void {
+  db.prepare(`UPDATE account_types SET label_ko = '안전자산' WHERE code = 'YOUTH_SAVINGS'`).run()
+}
+
+export const MIGRATIONS: Migration[] = [
+  { version: 1, up: migrateTransactionsAdjustCash },
+  { version: 2, up: migrateYouthSavingsLabel }
+]
 
 export const LATEST_SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1].version
 

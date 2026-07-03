@@ -17,6 +17,11 @@ function todayDate(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
+function currentYearMonth(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
 function formatMoney(value: number | null, currency: 'KRW' | 'USD'): string {
   if (value == null) return '-'
   if (currency === 'USD') {
@@ -106,6 +111,20 @@ function TransactionEntryPage(): React.JSX.Element {
     setTransactions(list)
   }
 
+  // 종목 거래(매수/매도/정리) 저장 후 시세를 자동 조회해 이번 달 현재가로 저장해둔다.
+  async function autoUpdateHoldingPrice(hId: number): Promise<void> {
+    const holding = holdings.find((h) => h.id === hId)
+    if (!holding?.priceSymbol) return
+    const result = await window.api.prices.fetch(hId)
+    if ('error' in result) return
+    await window.api.priceSnapshots.upsert({
+      holdingId: hId,
+      yearMonth: currentYearMonth(),
+      price: result.price,
+      source: result.source
+    })
+  }
+
   async function handleSubmit(e: React.FormEvent): Promise<void> {
     e.preventDefault()
     if (accountId == null) return
@@ -132,6 +151,9 @@ function TransactionEntryPage(): React.JSX.Element {
       if ('error' in result) {
         setFormError(result.error)
         return
+      }
+      if (isHoldingShaped && input.holdingId) {
+        await autoUpdateHoldingPrice(input.holdingId)
       }
       resetForm()
       await reloadTransactions()

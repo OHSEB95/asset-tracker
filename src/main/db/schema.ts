@@ -95,5 +95,5 @@ export const DEFAULT_ACCOUNT_TYPES: Array<{
   { code: 'IRP', labelKo: 'IRP', sortOrder: 4 },
   { code: 'ISA', labelKo: 'ISA', sortOrder: 5 },
   { code: 'PENSION_FUND', labelKo: '연금저축펀드', sortOrder: 6 },
-  { code: 'YOUTH_SAVINGS', labelKo: '청년도약계좌', sortOrder: 7 }
+  { code: 'YOUTH_SAVINGS', labelKo: '안전자산', sortOrder: 7 }
 ]

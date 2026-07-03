@@ -132,7 +132,7 @@ function HoldingsPanel({ accountId }: { accountId: number }): React.JSX.Element 
                     수정
                   </button>
                   <button type="button" onClick={() => handleArchive(h.id)}>
-                    보관
+                    삭제
                   </button>
                 </td>
               </tr>
@@ -280,7 +280,7 @@ function SettingsPage(): React.JSX.Element {
                       {expandedId === a.id ? '종목 닫기' : '종목 관리'}
                     </button>
                     <button onClick={() => startEdit(a.id)}>수정</button>
-                    <button onClick={() => handleArchive(a.id)}>보관</button>
+                    <button onClick={() => handleArchive(a.id)}>삭제</button>
                   </td>
                 </tr>
                 {expandedId === a.id && (
