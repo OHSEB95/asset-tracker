@@ -32,8 +32,7 @@ const api = {
     snapshot: (holdingId: number) => ipcRenderer.invoke(IPC.HOLDINGS_SNAPSHOT, holdingId)
   },
   transactions: {
-    listForAccount: (filter: TransactionListFilter) =>
-      ipcRenderer.invoke(IPC.TRANSACTIONS_LIST_FOR_ACCOUNT, filter),
+    list: (filter: TransactionListFilter) => ipcRenderer.invoke(IPC.TRANSACTIONS_LIST, filter),
     create: (input: TransactionInput) => ipcRenderer.invoke(IPC.TRANSACTIONS_CREATE, input),
     delete: (id: number) => ipcRenderer.invoke(IPC.TRANSACTIONS_DELETE, id)
   },

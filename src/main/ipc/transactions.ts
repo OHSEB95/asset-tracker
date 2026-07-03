@@ -1,15 +1,15 @@
 import { ipcMain } from 'electron'
 import { IPC } from '@shared/ipcChannels'
 import type { TransactionInput, TransactionListFilter } from '@shared/types'
-import { createTransaction, deleteTransaction, listTransactionsForAccount } from '../db/queries'
+import { createTransaction, deleteTransaction, listTransactions } from '../db/queries'
 
 function toErrorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err)
 }
 
 export function registerTransactionsIpc(): void {
-  ipcMain.handle(IPC.TRANSACTIONS_LIST_FOR_ACCOUNT, (_e, filter: TransactionListFilter) =>
-    listTransactionsForAccount(filter)
+  ipcMain.handle(IPC.TRANSACTIONS_LIST, (_e, filter: TransactionListFilter) =>
+    listTransactions(filter)
   )
 
   ipcMain.handle(IPC.TRANSACTIONS_CREATE, (_e, input: TransactionInput) => {

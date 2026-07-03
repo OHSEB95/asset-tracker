@@ -10,7 +10,7 @@ type Tab = 'dashboard' | 'entry' | 'holdings' | 'settings'
 
 const TABS: Array<{ key: Tab; label: string }> = [
   { key: 'dashboard', label: '대시보드' },
-  { key: 'entry', label: '거래 입력' },
+  { key: 'entry', label: '거래 내역' },
   { key: 'holdings', label: '보유종목' },
   { key: 'settings', label: '설정' }
 ]
@@ -51,7 +51,7 @@ function App(): React.JSX.Element {
             <ExchangeRateBadge />
           </nav>
           <main className="tab-content">
-            {tab === 'dashboard' && <DashboardPage />}
+            {tab === 'dashboard' && <DashboardPage onNavigateToHoldings={() => setTab('holdings')} />}
             {tab === 'entry' && <TransactionEntryPage />}
             {tab === 'holdings' && <HoldingsPage />}
             {tab === 'settings' && <SettingsPage />}

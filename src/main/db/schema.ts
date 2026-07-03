@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS transactions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   account_id INTEGER NOT NULL REFERENCES accounts(id),
   holding_id INTEGER REFERENCES holdings(id),
-  type TEXT NOT NULL CHECK (type IN ('DEPOSIT','WITHDRAWAL','BUY','SELL','ADJUST','DIVIDEND')),
+  type TEXT NOT NULL CHECK (type IN ('DEPOSIT','WITHDRAWAL','BUY','SELL','ADJUST','DIVIDEND','CLOSE')),
   date TEXT NOT NULL,
   quantity REAL,
   price REAL,
@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS transactions (
   note TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   CHECK (
-    (type IN ('DEPOSIT','WITHDRAWAL','DIVIDEND')
+    (type IN ('DEPOSIT','WITHDRAWAL','DIVIDEND','CLOSE')
        AND amount IS NOT NULL AND amount > 0
        AND quantity IS NULL AND price IS NULL AND realized_pnl IS NULL)
     OR

@@ -36,7 +36,7 @@ export interface Api {
     snapshot(holdingId: number): Promise<HoldingSnapshot>
   }
   transactions: {
-    listForAccount(filter: TransactionListFilter): Promise<Transaction[]>
+    list(filter: TransactionListFilter): Promise<Transaction[]>
     create(input: TransactionInput): Promise<{ data: Transaction } | { error: string }>
     delete(id: number): Promise<{ ok: true } | { error: string }>
   }

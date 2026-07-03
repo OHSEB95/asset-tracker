@@ -1,12 +1,18 @@
 import { useEffect, useState } from 'react'
 import { useAccountsContext } from '../state/AccountsContext'
-import type { Holding, HoldingSnapshot } from '@shared/types'
+import { useExchangeRateContext } from '../state/ExchangeRateContext'
+import NumberInput from '../components/NumberInput'
+import type { Account, Holding, HoldingSnapshot } from '@shared/types'
 
 function formatMoney(value: number | null, currency: 'KRW' | 'USD'): string {
   if (value == null) return '-'
   if (currency === 'USD') {
     return `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   }
+  return `${Math.round(value).toLocaleString()}원`
+}
+
+function formatKrw(value: number): string {
   return `${Math.round(value).toLocaleString()}원`
 }
 
@@ -17,6 +23,7 @@ function currentYearMonth(): string {
 
 function HoldingsPage(): React.JSX.Element {
   const { accountTypes, accounts, holdings } = useAccountsContext()
+  const { rate } = useExchangeRateContext()
   const [snapshots, setSnapshots] = useState<Record<number, HoldingSnapshot>>({})
   const [priceInputs, setPriceInputs] = useState<Record<number, string>>({})
   const [saving, setSaving] = useState(false)
@@ -50,9 +57,16 @@ function HoldingsPage(): React.JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [holdings])
 
+  function accountOf(h: Holding): Account | undefined {
+    return accounts.find((a) => a.id === h.accountId)
+  }
+
+  function isSavings(h: Holding): boolean {
+    return accountOf(h)?.accountTypeCode === 'YOUTH_SAVINGS'
+  }
+
   function currencyOf(h: Holding): 'KRW' | 'USD' {
-    const acct = accounts.find((a) => a.id === h.accountId)
-    return acct?.accountTypeCode === 'FOREIGN_STOCK' ? 'USD' : 'KRW'
+    return accountOf(h)?.accountTypeCode === 'FOREIGN_STOCK' ? 'USD' : 'KRW'
   }
 
   async function handleBulkSave(): Promise<void> {
@@ -60,6 +74,7 @@ function HoldingsPage(): React.JSX.Element {
     try {
       const yearMonth = currentYearMonth()
       const targets = activeHoldings.filter((h) => {
+        if (isSavings(h)) return false
         const value = parseFloat(priceInputs[h.id] ?? '')
         return Number.isFinite(value) && value > 0
       })
@@ -84,19 +99,28 @@ function HoldingsPage(): React.JSX.Element {
     }
   }
 
-  const orderedAccounts = [...accounts].sort((a, b) => {
-    const ta = accountTypes.find((t) => t.code === a.accountTypeCode)?.sortOrder ?? 0
-    const tb = accountTypes.find((t) => t.code === b.accountTypeCode)?.sortOrder ?? 0
-    if (ta !== tb) return ta - tb
-    return a.name.localeCompare(b.name)
-  })
+  const rows = activeHoldings
+    .map((holding) => {
+      const account = accountOf(holding)
+      const typeLabel = accountTypes.find((t) => t.code === account?.accountTypeCode)?.labelKo ?? ''
+      const savings = isSavings(holding)
+      const currency = currencyOf(holding)
+      const fx = currency === 'USD' ? (rate ?? 1) : 1
+      const snap = snapshots[holding.id]
+      const rawInput = priceInputs[holding.id] ?? ''
+      const currentPriceNum = parseFloat(rawInput)
+      const hasCurrentPrice = Number.isFinite(currentPriceNum) && currentPriceNum > 0
 
-  const rows = orderedAccounts.flatMap((acct) => {
-    const typeLabel = accountTypes.find((t) => t.code === acct.accountTypeCode)?.labelKo ?? ''
-    return activeHoldings
-      .filter((h) => h.accountId === acct.id)
-      .map((h) => ({ account: acct, typeLabel, holding: h }))
-  })
+      const value = savings
+        ? (snap?.currentValuation ?? 0)
+        : snap && snap.quantity != null && snap.quantity > 0 && hasCurrentPrice
+          ? snap.quantity * currentPriceNum * fx
+          : 0
+
+      return { account, typeLabel, holding, savings, currency, snap, rawInput, currentPriceNum, hasCurrentPrice, value }
+    })
+    .filter((r) => r.account != null)
+    .sort((a, b) => b.value - a.value)
 
   return (
     <div className="page">
@@ -115,49 +139,43 @@ function HoldingsPage(): React.JSX.Element {
               <tr>
                 <th>계좌유형</th>
                 <th>계좌명</th>
-                <th>종목</th>
+                <th>종목/상품</th>
                 <th>보유수량</th>
                 <th>평단가</th>
-                <th>현재가</th>
+                <th className="price-col-narrow">현재가</th>
+                <th>가치</th>
                 <th>수익률</th>
                 <th>수익금</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map(({ account, typeLabel, holding }) => {
-                const currency = currencyOf(holding)
-                const snap = snapshots[holding.id]
-                const rawInput = priceInputs[holding.id] ?? ''
-                const currentPriceNum = parseFloat(rawInput)
-                const hasCurrentPrice = Number.isFinite(currentPriceNum) && currentPriceNum > 0
+              {rows.map(({ account, typeLabel, holding, savings, currency, snap, rawInput, currentPriceNum, hasCurrentPrice, value }) => {
                 const profitRate =
-                  snap && snap.avgCost && hasCurrentPrice
+                  !savings && snap && snap.avgCost && hasCurrentPrice
                     ? ((currentPriceNum - snap.avgCost) / snap.avgCost) * 100
                     : null
                 const profitAmount =
-                  snap && snap.avgCost != null && snap.quantity > 0 && hasCurrentPrice
+                  !savings && snap && snap.avgCost != null && snap.quantity != null && snap.quantity > 0 && hasCurrentPrice
                     ? (currentPriceNum - snap.avgCost) * snap.quantity
                     : null
                 return (
                   <tr key={holding.id}>
                     <td>{typeLabel}</td>
-                    <td>{account.name}</td>
+                    <td>{account?.name}</td>
                     <td>{holding.name}</td>
-                    <td>{snap ? snap.quantity.toLocaleString() : '-'}</td>
-                    <td>
-                      {snap && snap.avgCost != null
-                        ? formatMoney(snap.avgCost, currency)
-                        : '-'}
+                    <td>{!savings && snap?.quantity != null ? snap.quantity.toLocaleString() : '-'}</td>
+                    <td>{!savings && snap?.avgCost != null ? formatMoney(snap.avgCost, currency) : '-'}</td>
+                    <td className="valuation-cell price-col-narrow">
+                      {savings ? (
+                        '-'
+                      ) : (
+                        <NumberInput
+                          value={rawInput}
+                          onChange={(v) => setPriceInputs((prev) => ({ ...prev, [holding.id]: v }))}
+                        />
+                      )}
                     </td>
-                    <td className="valuation-cell">
-                      <input
-                        type="number"
-                        value={rawInput}
-                        onChange={(e) =>
-                          setPriceInputs((prev) => ({ ...prev, [holding.id]: e.target.value }))
-                        }
-                      />
-                    </td>
+                    <td>{formatKrw(value)}</td>
                     <td className={profitRate == null ? '' : profitRate >= 0 ? 'gain' : 'loss'}>
                       {profitRate != null ? `${profitRate.toFixed(2)}%` : '-'}
                     </td>

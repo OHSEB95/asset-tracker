@@ -1,6 +1,7 @@
 import { getDatabase } from '../index'
 import type { Transaction, TransactionInput, TransactionListFilter } from '@shared/types'
 import { replayHoldingState } from './replay'
+import { getHoldingAccountTypeCode } from './holdings'
 
 function rowToTransaction(row: any): Transaction {
   return {
@@ -17,10 +18,20 @@ function rowToTransaction(row: any): Transaction {
   }
 }
 
-export function listTransactionsForAccount(filter: TransactionListFilter): Transaction[] {
+/** accountId가 있으면 해당 계좌만, 없고 accountTypeCode가 있으면 그 유형의 모든 계좌, 둘 다 없으면 전체 거래를 반환한다. */
+export function listTransactions(filter: TransactionListFilter): Transaction[] {
   const db = getDatabase()
-  const conditions = ['account_id = @accountId']
-  const params: Record<string, unknown> = { accountId: filter.accountId }
+  const conditions: string[] = []
+  const params: Record<string, unknown> = {}
+  if (filter.accountId != null) {
+    conditions.push('account_id = @accountId')
+    params.accountId = filter.accountId
+  } else if (filter.accountTypeCode) {
+    conditions.push(
+      'account_id IN (SELECT id FROM accounts WHERE account_type_code = @accountTypeCode)'
+    )
+    params.accountTypeCode = filter.accountTypeCode
+  }
   if (filter.from) {
     conditions.push('date >= @from')
     params.from = filter.from
@@ -29,10 +40,9 @@ export function listTransactionsForAccount(filter: TransactionListFilter): Trans
     conditions.push('date <= @to')
     params.to = filter.to
   }
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
   const rows = db
-    .prepare(
-      `SELECT * FROM transactions WHERE ${conditions.join(' AND ')} ORDER BY date DESC, id DESC`
-    )
+    .prepare(`SELECT * FROM transactions ${where} ORDER BY date DESC, id DESC`)
     .all(params)
   return rows.map(rowToTransaction)
 }
@@ -55,8 +65,15 @@ export function createTransaction(input: TransactionInput): Transaction {
 
   const isHoldingAdjust = input.type === 'ADJUST' && !!input.holdingId
   const isCashAdjust = input.type === 'ADJUST' && !input.holdingId
+  const isSavingsHoldingTx =
+    !!input.holdingId &&
+    getHoldingAccountTypeCode(input.holdingId) === 'YOUTH_SAVINGS' &&
+    (input.type === 'DEPOSIT' ||
+      input.type === 'WITHDRAWAL' ||
+      input.type === 'ADJUST' ||
+      input.type === 'CLOSE')
 
-  if (input.type === 'BUY' || input.type === 'SELL' || isHoldingAdjust) {
+  if ((input.type === 'BUY' || input.type === 'SELL' || isHoldingAdjust) && !isSavingsHoldingTx) {
     if (!input.holdingId) {
       throw new Error('매수/매도/정리 거래에는 보유종목을 선택해야 합니다.')
     }
@@ -83,7 +100,9 @@ export function createTransaction(input: TransactionInput): Transaction {
     input.type === 'DEPOSIT' ||
     input.type === 'WITHDRAWAL' ||
     input.type === 'DIVIDEND' ||
-    isCashAdjust
+    input.type === 'CLOSE' ||
+    isCashAdjust ||
+    isSavingsHoldingTx
   if (isCashType && (!input.amount || input.amount <= 0)) {
     throw new Error('금액을 올바르게 입력해주세요.')
   }

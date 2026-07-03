@@ -1,6 +1,6 @@
 import { getDatabase } from '../index'
 import type { Holding, HoldingInput, HoldingSnapshot, PriceSnapshotInput, Transaction } from '@shared/types'
-import { replayHoldingState } from './replay'
+import { replayCashHoldingState, replayHoldingState } from './replay'
 
 function rowToHolding(row: any): Holding {
   return {
@@ -69,6 +69,18 @@ export function archiveHolding(id: number, archived: boolean): void {
   db.prepare(`UPDATE holdings SET is_archived = ? WHERE id = ?`).run(archived ? 1 : 0, id)
 }
 
+/** 상품이 속한 계좌의 account_type_code를 조회한다 (안전자산 여부 판별용). */
+export function getHoldingAccountTypeCode(holdingId: number): string | null {
+  const db = getDatabase()
+  const row = db
+    .prepare(
+      `SELECT a.account_type_code AS code FROM holdings h
+       JOIN accounts a ON a.id = h.account_id WHERE h.id = ?`
+    )
+    .get(holdingId) as { code: string } | undefined
+  return row?.code ?? null
+}
+
 function rowToTransaction(row: any): Transaction {
   return {
     id: row.id,
@@ -101,6 +113,25 @@ function getLatestSnapshot(
 
 export function getHoldingSnapshot(holdingId: number): HoldingSnapshot {
   const db = getDatabase()
+
+  if (getHoldingAccountTypeCode(holdingId) === 'YOUTH_SAVINGS') {
+    const rows = db
+      .prepare(
+        `SELECT * FROM transactions WHERE holding_id = ?
+         AND type IN ('DEPOSIT','WITHDRAWAL','ADJUST','CLOSE') ORDER BY date ASC, id ASC`
+      )
+      .all(holdingId)
+    const { balance } = replayCashHoldingState(rows.map(rowToTransaction))
+    return {
+      holdingId,
+      quantity: null,
+      avgCost: null,
+      lastKnownPrice: null,
+      lastKnownPriceMonth: null,
+      currentValuation: balance
+    }
+  }
+
   const rows = db
     .prepare(
       `SELECT * FROM transactions WHERE holding_id = ? AND type IN ('BUY','SELL','ADJUST') ORDER BY date ASC, id ASC`

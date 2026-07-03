@@ -7,7 +7,7 @@ import type {
   PortfolioSnapshot,
   Transaction
 } from '@shared/types'
-import { cashImpact, replayHoldingState } from './replay'
+import { cashImpact, replayCashHoldingState, replayHoldingState } from './replay'
 import { getHoldingSnapshot } from './holdings'
 import { getUsdKrwRate } from '../../services/priceService'
 
@@ -183,6 +183,22 @@ export async function getMonthlySummary(filter: DashboardFilter): Promise<Monthl
 
       const acctHoldings = holdings.filter((h) => h.accountId === acct.id)
       for (const holding of acctHoldings) {
+        if (acct.accountTypeCode === 'YOUTH_SAVINGS') {
+          const holdingTx = acctTx.filter(
+            (t) =>
+              t.holdingId === holding.id &&
+              (t.type === 'DEPOSIT' ||
+                t.type === 'WITHDRAWAL' ||
+                t.type === 'ADJUST' ||
+                t.type === 'CLOSE')
+          )
+          if (holdingTx.length === 0) continue
+          const { balance } = replayCashHoldingState(holdingTx)
+          principalTotal += balance * fx
+          valuationTotal += balance * fx
+          continue
+        }
+
         const holdingTx = acctTx.filter(
           (t) =>
             t.holdingId === holding.id &&
@@ -247,10 +263,32 @@ export async function getPortfolioSnapshot(accountTypeCode?: string | null): Pro
       .prepare(`SELECT id, name FROM holdings WHERE account_id = ? AND is_archived = 0`)
       .all(acct.id) as Array<{ id: number; name: string }>
 
+    const isSavings = acct.account_type_code === 'YOUTH_SAVINGS'
     let hasHoldingRows = false
     for (const h of holdingRows) {
       const snap = getHoldingSnapshot(h.id)
-      if (snap.quantity <= 0) continue
+
+      if (isSavings) {
+        const balance = snap.currentValuation ?? 0
+        if (balance === 0) continue
+        hasHoldingRows = true
+        rows.push({
+          kind: 'holding',
+          accountId: acct.id,
+          accountTypeLabel: acct.label_ko,
+          label: h.name,
+          quantity: null,
+          avgCost: null,
+          currentPrice: null,
+          currency,
+          value: balance * fx,
+          profit: null,
+          weightPercent: 0
+        })
+        continue
+      }
+
+      if (snap.quantity == null || snap.quantity <= 0) continue
       hasHoldingRows = true
       const currentPrice = snap.lastKnownPrice ?? snap.avgCost
       const value = currentPrice != null ? snap.quantity * currentPrice * fx : 0
@@ -273,19 +311,21 @@ export async function getPortfolioSnapshot(accountTypeCode?: string | null): Pro
       })
     }
 
-    rows.push({
-      kind: 'cash',
-      accountId: acct.id,
-      accountTypeLabel: acct.label_ko,
-      label: hasHoldingRows ? `${acct.name} 예수금` : acct.name,
-      quantity: null,
-      avgCost: null,
-      currentPrice: null,
-      currency,
-      value: cashBalance * fx,
-      profit: null,
-      weightPercent: 0
-    })
+    if (!isSavings) {
+      rows.push({
+        kind: 'cash',
+        accountId: acct.id,
+        accountTypeLabel: acct.label_ko,
+        label: hasHoldingRows ? `${acct.name} 예수금` : acct.name,
+        quantity: null,
+        avgCost: null,
+        currentPrice: null,
+        currency,
+        value: cashBalance * fx,
+        profit: null,
+        weightPercent: 0
+      })
+    }
   }
 
   rows.sort((a, b) => b.value - a.value)

@@ -11,7 +11,7 @@ export const IPC = {
   HOLDINGS_ARCHIVE: 'holdings:archive',
   HOLDINGS_SNAPSHOT: 'holdings:snapshot',
 
-  TRANSACTIONS_LIST_FOR_ACCOUNT: 'transactions:listForAccount',
+  TRANSACTIONS_LIST: 'transactions:list',
   TRANSACTIONS_CREATE: 'transactions:create',
   TRANSACTIONS_DELETE: 'transactions:delete',
 

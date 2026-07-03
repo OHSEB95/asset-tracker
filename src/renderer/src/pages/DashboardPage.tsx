@@ -25,7 +25,11 @@ function formatByCurrency(value: number | null, currency: 'KRW' | 'USD'): string
   return formatKrw(value)
 }
 
-function DashboardPage(): React.JSX.Element {
+function DashboardPage({
+  onNavigateToHoldings
+}: {
+  onNavigateToHoldings?: () => void
+}): React.JSX.Element {
   const { accountTypes } = useAccountsContext()
   const [from, setFrom] = useState(startOfCurrentYear())
   const [to, setTo] = useState(currentYearMonth())
@@ -137,7 +141,14 @@ function DashboardPage(): React.JSX.Element {
         </section>
 
         <section className="card asset-list-card">
-          <h3>총 자산 목록</h3>
+          <div className="section-header">
+            <h3>총 자산 목록</h3>
+            {onNavigateToHoldings && (
+              <button type="button" className="ghost-button detail-button" onClick={onNavigateToHoldings}>
+                상세
+              </button>
+            )}
+          </div>
           <div className="asset-list-body">
             {!portfolio || portfolio.rows.length === 0 ? (
               <p className="muted">등록된 계좌/보유종목이 없습니다.</p>

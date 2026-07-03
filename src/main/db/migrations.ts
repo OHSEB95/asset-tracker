@@ -61,9 +61,79 @@ function migrateYouthSavingsLabel(db: Database.Database): void {
   db.prepare(`UPDATE account_types SET label_ko = '안전자산' WHERE code = 'YOUTH_SAVINGS'`).run()
 }
 
+/** 안전자산 상품의 '해지' 거래유형(CLOSE)을 저장할 수 있도록 CHECK 재생성 */
+function migrateTransactionsCloseType(db: Database.Database): void {
+  db.exec(`
+    ALTER TABLE transactions RENAME TO transactions_old;
+
+    CREATE TABLE transactions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      account_id INTEGER NOT NULL REFERENCES accounts(id),
+      holding_id INTEGER REFERENCES holdings(id),
+      type TEXT NOT NULL CHECK (type IN ('DEPOSIT','WITHDRAWAL','BUY','SELL','ADJUST','DIVIDEND','CLOSE')),
+      date TEXT NOT NULL,
+      quantity REAL,
+      price REAL,
+      amount REAL,
+      realized_pnl REAL,
+      note TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      CHECK (
+        (type IN ('DEPOSIT','WITHDRAWAL','DIVIDEND','CLOSE')
+           AND amount IS NOT NULL AND amount > 0
+           AND quantity IS NULL AND price IS NULL AND realized_pnl IS NULL)
+        OR
+        (type = 'BUY'
+           AND quantity IS NOT NULL AND quantity > 0
+           AND price IS NOT NULL AND price > 0
+           AND amount IS NULL AND realized_pnl IS NULL)
+        OR
+        (type = 'ADJUST' AND realized_pnl IS NULL AND (
+          (quantity IS NOT NULL AND quantity > 0
+             AND price IS NOT NULL AND price > 0
+             AND amount IS NULL)
+          OR
+          (amount IS NOT NULL AND amount > 0
+             AND quantity IS NULL AND price IS NULL)
+        ))
+        OR
+        (type = 'SELL'
+           AND quantity IS NOT NULL AND quantity > 0
+           AND price IS NOT NULL AND price > 0
+           AND amount IS NULL AND realized_pnl IS NOT NULL)
+      )
+    );
+
+    INSERT INTO transactions SELECT * FROM transactions_old;
+    DROP TABLE transactions_old;
+
+    CREATE INDEX IF NOT EXISTS idx_tx_account_date ON transactions(account_id, date);
+    CREATE INDEX IF NOT EXISTS idx_tx_holding_date ON transactions(holding_id, date);
+  `)
+}
+
+/**
+ * 안전자산 도입 이전에는 YOUTH_SAVINGS 계좌의 상품도 일반 종목처럼 수량×단가로 '정리' 거래가
+ * 저장됐다. 이제 안전자산 상품은 amount(잔액) 기반으로 읽으므로, 그런 옛 행을 amount 모양으로
+ * 재해석해준다 (수량×단가 → amount, quantity/price는 NULL).
+ */
+function migrateSavingsHoldingAdjustShape(db: Database.Database): void {
+  db.prepare(
+    `UPDATE transactions
+     SET amount = quantity * price, quantity = NULL, price = NULL
+     WHERE type = 'ADJUST' AND amount IS NULL
+       AND holding_id IN (
+         SELECT h.id FROM holdings h JOIN accounts a ON a.id = h.account_id
+         WHERE a.account_type_code = 'YOUTH_SAVINGS'
+       )`
+  ).run()
+}
+
 export const MIGRATIONS: Migration[] = [
   { version: 1, up: migrateTransactionsAdjustCash },
-  { version: 2, up: migrateYouthSavingsLabel }
+  { version: 2, up: migrateYouthSavingsLabel },
+  { version: 3, up: migrateTransactionsCloseType },
+  { version: 4, up: migrateSavingsHoldingAdjustShape }
 ]
 
 export const LATEST_SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1].version

@@ -34,7 +34,7 @@ export interface HoldingInput {
   priceSource?: PriceSource | null
 }
 
-export type TransactionType = 'DEPOSIT' | 'WITHDRAWAL' | 'BUY' | 'SELL' | 'ADJUST' | 'DIVIDEND'
+export type TransactionType = 'DEPOSIT' | 'WITHDRAWAL' | 'BUY' | 'SELL' | 'ADJUST' | 'DIVIDEND' | 'CLOSE'
 
 export interface Transaction {
   id: number
@@ -61,14 +61,15 @@ export interface TransactionInput {
 }
 
 export interface TransactionListFilter {
-  accountId: number
+  accountId?: number | null
+  accountTypeCode?: string | null
   from?: string
   to?: string
 }
 
 export interface HoldingSnapshot {
   holdingId: number
-  quantity: number
+  quantity: number | null
   avgCost: number | null
   lastKnownPrice: number | null
   lastKnownPriceMonth: string | null
