@@ -9,7 +9,12 @@ function rowToHolding(row: any): Holding {
     name: row.name,
     priceSymbol: row.price_symbol,
     priceSource: row.price_source,
-    isArchived: !!row.is_archived
+    isArchived: !!row.is_archived,
+    dividendPerShare: row.dividend_per_share,
+    dividendCycleType: row.dividend_cycle_type,
+    dividendMonths: row.dividend_months
+      ? row.dividend_months.split(',').map((m: string) => Number(m))
+      : null
   }
 }
 
@@ -37,14 +42,18 @@ export function createHolding(input: HoldingInput): Holding {
   const db = getDatabase()
   const result = db
     .prepare(
-      `INSERT INTO holdings (account_id, name, price_symbol, price_source)
-       VALUES (@accountId, @name, @priceSymbol, @priceSource)`
+      `INSERT INTO holdings
+         (account_id, name, price_symbol, price_source, dividend_per_share, dividend_cycle_type, dividend_months)
+       VALUES (@accountId, @name, @priceSymbol, @priceSource, @dividendPerShare, @dividendCycleType, @dividendMonths)`
     )
     .run({
       accountId: input.accountId,
       name: input.name,
       priceSymbol: input.priceSymbol ?? null,
-      priceSource: input.priceSource ?? null
+      priceSource: input.priceSource ?? null,
+      dividendPerShare: input.dividendPerShare ?? null,
+      dividendCycleType: input.dividendCycleType ?? null,
+      dividendMonths: input.dividendMonths?.length ? input.dividendMonths.join(',') : null
     })
   const row = db.prepare(`SELECT * FROM holdings WHERE id = ?`).get(result.lastInsertRowid)
   return rowToHolding(row)
@@ -53,12 +62,22 @@ export function createHolding(input: HoldingInput): Holding {
 export function updateHolding(id: number, input: HoldingInput): Holding {
   const db = getDatabase()
   db.prepare(
-    `UPDATE holdings SET name = @name, price_symbol = @priceSymbol, price_source = @priceSource WHERE id = @id`
+    `UPDATE holdings SET
+       name = @name,
+       price_symbol = @priceSymbol,
+       price_source = @priceSource,
+       dividend_per_share = @dividendPerShare,
+       dividend_cycle_type = @dividendCycleType,
+       dividend_months = @dividendMonths
+     WHERE id = @id`
   ).run({
     id,
     name: input.name,
     priceSymbol: input.priceSymbol ?? null,
-    priceSource: input.priceSource ?? null
+    priceSource: input.priceSource ?? null,
+    dividendPerShare: input.dividendPerShare ?? null,
+    dividendCycleType: input.dividendCycleType ?? null,
+    dividendMonths: input.dividendMonths?.length ? input.dividendMonths.join(',') : null
   })
   const row = db.prepare(`SELECT * FROM holdings WHERE id = ?`).get(id)
   return rowToHolding(row)

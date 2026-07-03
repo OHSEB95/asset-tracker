@@ -129,11 +129,21 @@ function migrateSavingsHoldingAdjustShape(db: Database.Database): void {
   ).run()
 }
 
+/** 보유종목에 배당 정보(1주 배당금/배당주기/배당월) 컬럼 추가 */
+function migrateHoldingsDividendColumns(db: Database.Database): void {
+  db.exec(`
+    ALTER TABLE holdings ADD COLUMN dividend_per_share REAL;
+    ALTER TABLE holdings ADD COLUMN dividend_cycle_type TEXT;
+    ALTER TABLE holdings ADD COLUMN dividend_months TEXT;
+  `)
+}
+
 export const MIGRATIONS: Migration[] = [
   { version: 1, up: migrateTransactionsAdjustCash },
   { version: 2, up: migrateYouthSavingsLabel },
   { version: 3, up: migrateTransactionsCloseType },
-  { version: 4, up: migrateSavingsHoldingAdjustShape }
+  { version: 4, up: migrateSavingsHoldingAdjustShape },
+  { version: 5, up: migrateHoldingsDividendColumns }
 ]
 
 export const LATEST_SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1].version

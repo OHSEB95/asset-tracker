@@ -20,6 +20,9 @@ CREATE TABLE IF NOT EXISTS holdings (
   price_symbol TEXT,
   price_source TEXT CHECK (price_source IN ('coingecko','naver','yahoo') OR price_source IS NULL),
   is_archived INTEGER NOT NULL DEFAULT 0,
+  dividend_per_share REAL,
+  dividend_cycle_type TEXT,
+  dividend_months TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

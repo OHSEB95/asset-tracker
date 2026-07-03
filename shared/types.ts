@@ -18,6 +18,8 @@ export interface AccountInput {
 
 export type PriceSource = 'coingecko' | 'naver' | 'yahoo'
 
+export type DividendCycleType = 'MONTHLY' | 'ANNUAL' | 'CUSTOM'
+
 export interface Holding {
   id: number
   accountId: number
@@ -25,6 +27,9 @@ export interface Holding {
   priceSymbol: string | null
   priceSource: PriceSource | null
   isArchived: boolean
+  dividendPerShare: number | null
+  dividendCycleType: DividendCycleType | null
+  dividendMonths: number[] | null
 }
 
 export interface HoldingInput {
@@ -32,6 +37,9 @@ export interface HoldingInput {
   name: string
   priceSymbol?: string | null
   priceSource?: PriceSource | null
+  dividendPerShare?: number | null
+  dividendCycleType?: DividendCycleType | null
+  dividendMonths?: number[] | null
 }
 
 export type TransactionType = 'DEPOSIT' | 'WITHDRAWAL' | 'BUY' | 'SELL' | 'ADJUST' | 'DIVIDEND' | 'CLOSE'

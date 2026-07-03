@@ -506,3 +506,62 @@ td.loss {
   border-top: 2px solid var(--border);
   border-bottom: none;
 }
+
+/* 보유종목 등록 폼 (설정 화면) */
+.field-holding-name {
+  flex: 2 1 220px;
+}
+
+.field-price-source {
+  flex: 1 1 180px;
+}
+
+.field-symbol {
+  flex: 0 1 100px;
+}
+
+.field-dividend-amount {
+  flex: 0 1 120px;
+}
+
+.field-dividend-cycle {
+  flex: 0 1 170px;
+}
+
+.popup-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+.popup-panel {
+  background: var(--card-bg);
+  border-radius: 10px;
+  padding: 20px;
+  min-width: 280px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+
+.popup-panel h4 {
+  margin: 0 0 12px;
+  font-size: 14px;
+}
+
+.month-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.month-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--text);
+}

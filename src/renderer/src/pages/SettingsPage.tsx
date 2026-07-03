@@ -1,12 +1,15 @@
 import { Fragment, useEffect, useState } from 'react'
 import { useAccountsContext } from '../state/AccountsContext'
-import type { AccountInput, Holding, HoldingInput, PriceSource } from '@shared/types'
+import NumberInput from '../components/NumberInput'
+import type { AccountInput, DividendCycleType, Holding, HoldingInput, PriceSource } from '@shared/types'
 
 const PRICE_SOURCE_LABEL: Record<PriceSource, string> = {
   coingecko: '코인게코 (비트코인 등)',
   naver: '네이버 금융 (국내주식)',
   yahoo: '야후 파이낸스 (해외주식)'
 }
+
+const ALL_MONTHS = Array.from({ length: 12 }, (_, i) => i + 1)
 
 function emptyAccountForm(defaultType: string): AccountInput {
   return { accountTypeCode: defaultType, name: '' }
@@ -16,11 +19,59 @@ function emptyHoldingForm(accountId: number): HoldingInput {
   return { accountId, name: '', priceSymbol: '', priceSource: null }
 }
 
+function MonthPickerPopup({
+  initialMonths,
+  onConfirm,
+  onCancel
+}: {
+  initialMonths: number[]
+  onConfirm: (months: number[]) => void
+  onCancel: () => void
+}): React.JSX.Element {
+  const [selected, setSelected] = useState<number[]>(initialMonths)
+
+  function toggle(m: number): void {
+    setSelected((prev) =>
+      prev.includes(m) ? prev.filter((x) => x !== m) : [...prev, m].sort((a, b) => a - b)
+    )
+  }
+
+  return (
+    <div className="popup-backdrop" onClick={onCancel}>
+      <div className="popup-panel" onClick={(e) => e.stopPropagation()}>
+        <h4>배당 지급월 선택</h4>
+        <div className="month-grid">
+          {ALL_MONTHS.map((m) => (
+            <label key={m} className="month-checkbox">
+              <input type="checkbox" checked={selected.includes(m)} onChange={() => toggle(m)} />
+              {m}월
+            </label>
+          ))}
+        </div>
+        <div className="form-actions">
+          <button type="button" onClick={() => onConfirm(selected)} disabled={selected.length === 0}>
+            확인
+          </button>
+          <button type="button" className="ghost-button" onClick={onCancel}>
+            취소
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function HoldingsPanel({ accountId }: { accountId: number }): React.JSX.Element {
   const { refresh } = useAccountsContext()
   const [holdings, setHoldings] = useState<Holding[]>([])
   const [form, setForm] = useState<HoldingInput>(emptyHoldingForm(accountId))
   const [editingId, setEditingId] = useState<number | null>(null)
+  const [dividendPerShareInput, setDividendPerShareInput] = useState('')
+  const [dividendCycleType, setDividendCycleType] = useState<DividendCycleType | null>(null)
+  const [dividendMonths, setDividendMonths] = useState<number[]>([])
+  const [showMonthPopup, setShowMonthPopup] = useState(false)
+
+  const hasDividend = dividendPerShareInput.trim() !== ''
 
   async function load(): Promise<void> {
     const list = await window.api.holdings.listForAccount(accountId)
@@ -31,16 +82,36 @@ function HoldingsPanel({ accountId }: { accountId: number }): React.JSX.Element 
     load()
   }, [accountId])
 
+  useEffect(() => {
+    if (!hasDividend) {
+      setDividendCycleType(null)
+      setDividendMonths([])
+    }
+  }, [hasDividend])
+
+  function resetForm(): void {
+    setForm(emptyHoldingForm(accountId))
+    setDividendPerShareInput('')
+    setDividendCycleType(null)
+    setDividendMonths([])
+    setEditingId(null)
+  }
+
   async function handleSubmit(e: React.FormEvent): Promise<void> {
     e.preventDefault()
     if (!form.name.trim()) return
-    if (editingId) {
-      await window.api.holdings.update(editingId, form)
-    } else {
-      await window.api.holdings.create(form)
+    const input: HoldingInput = {
+      ...form,
+      dividendPerShare: hasDividend ? parseFloat(dividendPerShareInput) : null,
+      dividendCycleType: hasDividend ? dividendCycleType : null,
+      dividendMonths: hasDividend && dividendCycleType === 'CUSTOM' ? dividendMonths : null
     }
-    setForm(emptyHoldingForm(accountId))
-    setEditingId(null)
+    if (editingId) {
+      await window.api.holdings.update(editingId, input)
+    } else {
+      await window.api.holdings.create(input)
+    }
+    resetForm()
     await load()
     await refresh()
   }
@@ -53,6 +124,9 @@ function HoldingsPanel({ accountId }: { accountId: number }): React.JSX.Element 
       priceSymbol: h.priceSymbol ?? '',
       priceSource: h.priceSource
     })
+    setDividendPerShareInput(h.dividendPerShare != null ? String(h.dividendPerShare) : '')
+    setDividendCycleType(h.dividendCycleType)
+    setDividendMonths(h.dividendMonths ?? [])
   }
 
   async function handleArchive(id: number): Promise<void> {
@@ -61,11 +135,24 @@ function HoldingsPanel({ accountId }: { accountId: number }): React.JSX.Element 
     await refresh()
   }
 
+  function handleCycleTypeChange(value: string): void {
+    if (value === 'CUSTOM') {
+      setDividendCycleType('CUSTOM')
+      setShowMonthPopup(true)
+    } else if (value === '') {
+      setDividendCycleType(null)
+      setDividendMonths([])
+    } else {
+      setDividendCycleType(value as DividendCycleType)
+      setDividendMonths([])
+    }
+  }
+
   return (
     <div className="holdings-panel">
       <h4>보유종목</h4>
-      <form onSubmit={handleSubmit} className="form-grid">
-        <label>
+      <form onSubmit={handleSubmit} className="tx-form">
+        <label className="field-holding-name">
           종목 이름
           <input
             value={form.name}
@@ -73,7 +160,7 @@ function HoldingsPanel({ accountId }: { accountId: number }): React.JSX.Element 
             placeholder="예: KODEX 미국 AI 테크 TOP10 타겟 커버드콜"
           />
         </label>
-        <label>
+        <label className="field-price-source">
           시세 조회 소스
           <select
             value={form.priceSource ?? ''}
@@ -89,7 +176,7 @@ function HoldingsPanel({ accountId }: { accountId: number }): React.JSX.Element 
             ))}
           </select>
         </label>
-        <label>
+        <label className="field-symbol">
           심볼/티커
           <input
             value={form.priceSymbol ?? ''}
@@ -97,21 +184,56 @@ function HoldingsPanel({ accountId }: { accountId: number }): React.JSX.Element 
             placeholder="예: BTC, 005930, AAPL"
           />
         </label>
+        <label className="field-dividend-amount">
+          1주 배당금
+          <NumberInput value={dividendPerShareInput} onChange={setDividendPerShareInput} placeholder="없으면 비워두세요" />
+        </label>
+        <label className="field-dividend-cycle">
+          배당주기
+          <select
+            value={dividendCycleType ?? ''}
+            disabled={!hasDividend}
+            onChange={(e) => handleCycleTypeChange(e.target.value)}
+          >
+            <option value="">선택</option>
+            <option value="MONTHLY">1개월</option>
+            <option value="ANNUAL">12개월</option>
+            <option value="CUSTOM">
+              {dividendCycleType === 'CUSTOM' && dividendMonths.length > 0
+                ? `${dividendMonths.join(', ')}월`
+                : '임의'}
+            </option>
+          </select>
+        </label>
+        {dividendCycleType === 'CUSTOM' && (
+          <button
+            type="button"
+            className="ghost-button"
+            onClick={() => setShowMonthPopup(true)}
+          >
+            월 선택
+          </button>
+        )}
         <div className="form-actions">
           <button type="submit">{editingId ? '수정 저장' : '종목 추가'}</button>
           {editingId && (
-            <button
-              type="button"
-              onClick={() => {
-                setEditingId(null)
-                setForm(emptyHoldingForm(accountId))
-              }}
-            >
+            <button type="button" onClick={resetForm}>
               취소
             </button>
           )}
         </div>
       </form>
+
+      {showMonthPopup && (
+        <MonthPickerPopup
+          initialMonths={dividendMonths}
+          onConfirm={(months) => {
+            setDividendMonths(months)
+            setShowMonthPopup(false)
+          }}
+          onCancel={() => setShowMonthPopup(false)}
+        />
+      )}
 
       {holdings.length > 0 && (
         <table className="data-table">
