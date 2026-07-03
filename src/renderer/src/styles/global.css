@@ -233,9 +233,21 @@ button:disabled {
 }
 
 .currency-toggle {
-  margin: 8px 0 0;
+  margin: 0;
   font-size: 12px;
   padding: 5px 10px;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.section-header h2 {
+  margin: 0;
 }
 
 .data-table {
@@ -298,13 +310,21 @@ button:disabled {
 }
 
 .summary-value.gain,
-.summary-label.gain {
+.summary-label.gain,
+td.gain {
   color: var(--gain);
 }
 
 .summary-value.loss,
-.summary-label.loss {
+.summary-label.loss,
+td.loss {
   color: var(--loss);
+}
+
+.compact-table th,
+.compact-table td {
+  padding: 4px 8px;
+  font-size: 12px;
 }
 
 /* 대시보드: 스크롤 없이 창 크기에 맞춰 늘어나는 레이아웃 */
@@ -349,17 +369,19 @@ button:disabled {
   gap: 2px;
 }
 
-.dashboard-charts {
+.dashboard-principal-chart {
+  flex: 0 0 220px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.dashboard-lower {
   flex: 1 1 auto;
   min-height: 0;
   display: grid;
-  grid-template-columns: 1.3fr 1fr;
-  grid-template-rows: 1fr 1fr;
+  grid-template-columns: 1.4fr 1fr;
   gap: 12px;
-}
-
-.chart-main {
-  grid-row: 1 / 3;
 }
 
 .chart-card {
@@ -375,4 +397,23 @@ button:disabled {
 .chart-body {
   flex: 1 1 auto;
   min-height: 0;
+}
+
+.asset-list-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.asset-list-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.asset-list-body tfoot td {
+  font-weight: 700;
+  border-top: 2px solid var(--border);
+  border-bottom: none;
 }

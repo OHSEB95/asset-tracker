@@ -118,3 +118,23 @@ export interface ExchangeRateInfo {
   fetchedAt: string
   stale: boolean
 }
+
+export interface PortfolioRow {
+  kind: 'holding' | 'cash'
+  accountId: number
+  accountTypeLabel: string
+  label: string
+  quantity: number | null
+  avgCost: number | null
+  currentPrice: number | null
+  currency: 'KRW' | 'USD'
+  value: number
+  profit: number | null
+  weightPercent: number
+}
+
+export interface PortfolioSnapshot {
+  rows: PortfolioRow[]
+  totalValue: number
+  totalProfit: number
+}

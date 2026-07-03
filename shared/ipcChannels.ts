@@ -24,5 +24,6 @@ export const IPC = {
   SETTINGS_SET_DATA_DIR: 'settings:setDataDir',
   SETTINGS_CHOOSE_DATA_DIR: 'settings:chooseDataDir',
 
-  DASHBOARD_GET_MONTHLY_SUMMARY: 'dashboard:getMonthlySummary'
+  DASHBOARD_GET_MONTHLY_SUMMARY: 'dashboard:getMonthlySummary',
+  DASHBOARD_GET_PORTFOLIO_SNAPSHOT: 'dashboard:getPortfolioSnapshot'
 } as const

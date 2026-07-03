@@ -85,6 +85,14 @@ function TransactionEntryPage(): React.JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accountId, holdings])
 
+  // 계좌 전환 시 시세를 기본으로 자동 조회해 채워둔다 (버튼 클릭 없이도 채워짐, 이후 수동 수정 가능)
+  useEffect(() => {
+    accountHoldings.forEach((h) => {
+      if (h.priceSymbol) handleAutoFetchPrice(h.id)
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accountId])
+
   // 해외주식 계좌는 항상 USD가 저장 기준. inputInKrw는 입력/표시 시점의 변환 방향만 바꾼다.
   function toStoredAmount(rawInput: string): number {
     const parsed = parseFloat(rawInput)
@@ -198,16 +206,18 @@ function TransactionEntryPage(): React.JSX.Element {
   return (
     <div className="page">
       <section className="card">
-        <h2>거래 입력</h2>
-        {isForeignAccount && (
-          <button
-            type="button"
-            className="ghost-button currency-toggle"
-            onClick={() => setInputInKrw((v) => !v)}
-          >
-            {inputInKrw ? 'KRW 환산 입력 중 (누르면 USD로)' : 'USD 입력 중 (누르면 KRW 환산으로)'}
-          </button>
-        )}
+        <div className="section-header">
+          <h2>거래 입력</h2>
+          {isForeignAccount && (
+            <button
+              type="button"
+              className="ghost-button currency-toggle"
+              onClick={() => setInputInKrw((v) => !v)}
+            >
+              {inputInKrw ? 'KRW 환산 입력 중 (누르면 USD로)' : 'USD 입력 중 (누르면 KRW 환산으로)'}
+            </button>
+          )}
+        </div>
         <form onSubmit={handleSubmit} className="tx-form">
           <label className="field-date">
             날짜
@@ -344,13 +354,15 @@ function TransactionEntryPage(): React.JSX.Element {
       {accountHoldings.length > 0 && (
         <section className="card">
           <h3>현재가 갱신</h3>
-          <table className="data-table">
+          <table className="data-table compact-table">
             <thead>
               <tr>
                 <th>종목</th>
                 <th>보유수량</th>
                 <th>평단가</th>
-                <th>이번 달 시세{isForeignAccount ? (inputInKrw ? ' (₩)' : ' ($)') : ''}</th>
+                <th>현재가{isForeignAccount ? (inputInKrw ? ' (₩)' : ' ($)') : ''}</th>
+                <th>수익률</th>
+                <th>수익금</th>
                 <th></th>
               </tr>
             </thead>
@@ -358,6 +370,16 @@ function TransactionEntryPage(): React.JSX.Element {
               {accountHoldings.map((h) => {
                 const snap = snapshots[h.id]
                 const rawInput = priceInputs[h.id] ?? ''
+                const currentPriceNum = parseFloat(rawInput)
+                const hasCurrentPrice = Number.isFinite(currentPriceNum) && currentPriceNum > 0
+                const profitRate =
+                  snap && snap.avgCost && hasCurrentPrice
+                    ? ((currentPriceNum - snap.avgCost) / snap.avgCost) * 100
+                    : null
+                const profitAmount =
+                  snap && snap.avgCost != null && snap.quantity > 0 && hasCurrentPrice
+                    ? (currentPriceNum - snap.avgCost) * snap.quantity
+                    : null
                 const displayInputValue =
                   isForeignAccount && inputInKrw && rate && rawInput
                     ? (parseFloat(rawInput) * rate).toFixed(0)
@@ -393,9 +415,15 @@ function TransactionEntryPage(): React.JSX.Element {
                           disabled={fetchingHoldingId === h.id}
                           onClick={() => handleAutoFetchPrice(h.id)}
                         >
-                          {fetchingHoldingId === h.id ? '조회 중…' : '자동조회'}
+                          {fetchingHoldingId === h.id ? '조회 중…' : '새로고침'}
                         </button>
                       )}
+                    </td>
+                    <td className={profitRate == null ? '' : profitRate >= 0 ? 'gain' : 'loss'}>
+                      {profitRate != null ? `${profitRate.toFixed(2)}%` : '-'}
+                    </td>
+                    <td className={profitAmount == null ? '' : profitAmount >= 0 ? 'gain' : 'loss'}>
+                      {profitAmount != null ? displayMoney(profitAmount) : '-'}
                     </td>
                     <td>
                       <button type="button" onClick={() => handleSavePriceSnapshot(h.id)}>

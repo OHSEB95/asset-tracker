@@ -9,6 +9,7 @@ import type {
   HoldingInput,
   HoldingSnapshot,
   MonthlySummaryRow,
+  PortfolioSnapshot,
   PriceFetchError,
   PriceFetchResult,
   PriceSnapshotInput,
@@ -55,6 +56,7 @@ export interface Api {
   }
   dashboard: {
     getMonthlySummary(filter: DashboardFilter): Promise<MonthlySummaryRow[]>
+    getPortfolioSnapshot(accountTypeCode?: string | null): Promise<PortfolioSnapshot>
   }
 }
 

@@ -1,6 +1,14 @@
 import { getDatabase } from '../index'
-import type { Account, DashboardFilter, MonthlySummaryRow, Transaction } from '@shared/types'
+import type {
+  Account,
+  DashboardFilter,
+  MonthlySummaryRow,
+  PortfolioRow,
+  PortfolioSnapshot,
+  Transaction
+} from '@shared/types'
 import { cashImpact, replayHoldingState } from './replay'
+import { getHoldingSnapshot } from './holdings'
 import { getUsdKrwRate } from '../../services/priceService'
 
 function rowToAccount(row: any): Account {
@@ -200,4 +208,90 @@ export async function getMonthlySummary(filter: DashboardFilter): Promise<Monthl
       cumulativeContribution: cumulative
     }
   })
+}
+
+export async function getPortfolioSnapshot(accountTypeCode?: string | null): Promise<PortfolioSnapshot> {
+  const db = getDatabase()
+  const { rate } = await getUsdKrwRate()
+
+  const conditions = ['a.is_archived = 0']
+  const params: unknown[] = []
+  if (accountTypeCode) {
+    conditions.push('a.account_type_code = ?')
+    params.push(accountTypeCode)
+  }
+  const accountRows = db
+    .prepare(
+      `SELECT a.id, a.name, a.account_type_code, t.label_ko
+       FROM accounts a JOIN account_types t ON t.code = a.account_type_code
+       WHERE ${conditions.join(' AND ')}`
+    )
+    .all(...params) as Array<{ id: number; name: string; account_type_code: string; label_ko: string }>
+
+  const rows: PortfolioRow[] = []
+
+  for (const acct of accountRows) {
+    const isForeign = acct.account_type_code === 'FOREIGN_STOCK'
+    const fx = isForeign ? rate : 1
+    const currency: 'KRW' | 'USD' = isForeign ? 'USD' : 'KRW'
+
+    const allTx = (
+      db.prepare(`SELECT * FROM transactions WHERE account_id = ?`).all(acct.id) as any[]
+    ).map(rowToTransaction)
+    const cashBalance = allTx.reduce((sum, t) => sum + cashImpact(t), 0)
+
+    const holdingRows = db
+      .prepare(`SELECT id, name FROM holdings WHERE account_id = ? AND is_archived = 0`)
+      .all(acct.id) as Array<{ id: number; name: string }>
+
+    let hasHoldingRows = false
+    for (const h of holdingRows) {
+      const snap = getHoldingSnapshot(h.id)
+      if (snap.quantity <= 0) continue
+      hasHoldingRows = true
+      const currentPrice = snap.lastKnownPrice ?? snap.avgCost
+      const value = currentPrice != null ? snap.quantity * currentPrice * fx : 0
+      const profit =
+        currentPrice != null && snap.avgCost != null
+          ? (currentPrice - snap.avgCost) * snap.quantity * fx
+          : null
+      rows.push({
+        kind: 'holding',
+        accountId: acct.id,
+        accountTypeLabel: acct.label_ko,
+        label: h.name,
+        quantity: snap.quantity,
+        avgCost: snap.avgCost,
+        currentPrice,
+        currency,
+        value,
+        profit,
+        weightPercent: 0
+      })
+    }
+
+    rows.push({
+      kind: 'cash',
+      accountId: acct.id,
+      accountTypeLabel: acct.label_ko,
+      label: hasHoldingRows ? `${acct.name} 예수금` : acct.name,
+      quantity: null,
+      avgCost: null,
+      currentPrice: null,
+      currency,
+      value: cashBalance * fx,
+      profit: null,
+      weightPercent: 0
+    })
+  }
+
+  rows.sort((a, b) => b.value - a.value)
+  const totalValue = rows.reduce((sum, r) => sum + r.value, 0)
+  const totalProfit = rows.reduce((sum, r) => sum + (r.profit ?? 0), 0)
+  const weighted = rows.map((r) => ({
+    ...r,
+    weightPercent: totalValue > 0 ? (r.value / totalValue) * 100 : 0
+  }))
+
+  return { rows: weighted, totalValue, totalProfit }
 }
