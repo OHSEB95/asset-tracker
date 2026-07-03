@@ -99,7 +99,7 @@ export interface MonthlySummaryRow {
   dividends: number
   realizedPnl: number
   valuation: number
-  cumulativeContribution: number
+  principal: number
 }
 
 export interface DashboardFilter {

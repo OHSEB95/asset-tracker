@@ -26,7 +26,9 @@ export function replayHoldingState(transactions: Transaction[]): HoldingState {
   return { quantity, avgCost }
 }
 
-export function cashImpact(tx: Pick<Transaction, 'type' | 'amount' | 'quantity' | 'price'>): number {
+export function cashImpact(
+  tx: Pick<Transaction, 'type' | 'amount' | 'quantity' | 'price' | 'holdingId'>
+): number {
   switch (tx.type) {
     case 'DEPOSIT':
     case 'DIVIDEND':
@@ -38,7 +40,7 @@ export function cashImpact(tx: Pick<Transaction, 'type' | 'amount' | 'quantity' 
     case 'SELL':
       return tx.quantity! * tx.price!
     case 'ADJUST':
-      return 0
+      return tx.holdingId != null ? 0 : tx.amount!
     default:
       return 0
   }

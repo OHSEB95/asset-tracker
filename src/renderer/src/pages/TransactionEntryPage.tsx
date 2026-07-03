@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAccountsContext } from '../state/AccountsContext'
 import { useExchangeRateContext } from '../state/ExchangeRateContext'
-import type { HoldingSnapshot, Transaction, TransactionInput, TransactionType } from '@shared/types'
+import type { Transaction, TransactionInput, TransactionType } from '@shared/types'
 
 const TYPE_LABEL: Record<TransactionType, string> = {
   DEPOSIT: '입금',
@@ -15,11 +15,6 @@ const TYPE_LABEL: Record<TransactionType, string> = {
 function todayDate(): string {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-function currentYearMonth(): string {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
 
 function formatMoney(value: number | null, currency: 'KRW' | 'USD'): string {
@@ -37,6 +32,7 @@ function TransactionEntryPage(): React.JSX.Element {
   const [accountId, setAccountId] = useState<number | null>(null)
   const [date, setDate] = useState(todayDate())
   const [type, setType] = useState<TransactionType>('DEPOSIT')
+  const [adjustTarget, setAdjustTarget] = useState<'holding' | 'cash'>('holding')
   const [holdingId, setHoldingId] = useState<number | null>(null)
   const [quantity, setQuantity] = useState('')
   const [price, setPrice] = useState('')
@@ -47,10 +43,6 @@ function TransactionEntryPage(): React.JSX.Element {
   const [inputInKrw, setInputInKrw] = useState(false)
 
   const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [snapshots, setSnapshots] = useState<Record<number, HoldingSnapshot>>({})
-  const [priceInputs, setPriceInputs] = useState<Record<number, string>>({})
-  const [fetchingHoldingId, setFetchingHoldingId] = useState<number | null>(null)
-  const [priceMessage, setPriceMessage] = useState<Record<number, string>>({})
   const [deleteError, setDeleteError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -73,25 +65,16 @@ function TransactionEntryPage(): React.JSX.Element {
   }, [accountId])
 
   useEffect(() => {
-    if (accountHoldings.length === 0) {
-      setSnapshots({})
-      return
-    }
-    Promise.all(accountHoldings.map((h) => window.api.holdings.snapshot(h.id))).then((list) => {
-      const map: Record<number, HoldingSnapshot> = {}
-      list.forEach((s) => (map[s.holdingId] = s))
-      setSnapshots(map)
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accountId, holdings])
+    if (type !== 'ADJUST') setAdjustTarget('holding')
+  }, [type])
 
-  // 계좌 전환 시 시세를 기본으로 자동 조회해 채워둔다 (버튼 클릭 없이도 채워짐, 이후 수동 수정 가능)
-  useEffect(() => {
-    accountHoldings.forEach((h) => {
-      if (h.priceSymbol) handleAutoFetchPrice(h.id)
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accountId])
+  const isHoldingShaped =
+    type === 'BUY' || type === 'SELL' || (type === 'ADJUST' && adjustTarget === 'holding')
+  const isCashShaped =
+    type === 'DEPOSIT' ||
+    type === 'WITHDRAWAL' ||
+    type === 'DIVIDEND' ||
+    (type === 'ADJUST' && adjustTarget === 'cash')
 
   // 해외주식 계좌는 항상 USD가 저장 기준. inputInKrw는 입력/표시 시점의 변환 방향만 바꾼다.
   function toStoredAmount(rawInput: string): number {
@@ -113,6 +96,7 @@ function TransactionEntryPage(): React.JSX.Element {
     setAmount('')
     setNote('')
     setHoldingId(null)
+    setAdjustTarget('holding')
     setFormError(null)
   }
 
@@ -134,7 +118,7 @@ function TransactionEntryPage(): React.JSX.Element {
       date,
       note: note || null
     }
-    if (type === 'BUY' || type === 'SELL' || type === 'ADJUST') {
+    if (isHoldingShaped) {
       input.holdingId = holdingId
       input.quantity = parseFloat(quantity)
       input.price = toStoredAmount(price)
@@ -166,41 +150,6 @@ function TransactionEntryPage(): React.JSX.Element {
     }
     await reloadTransactions()
     await refresh()
-  }
-
-  async function handleAutoFetchPrice(hId: number): Promise<void> {
-    setFetchingHoldingId(hId)
-    setPriceMessage((prev) => ({ ...prev, [hId]: '' }))
-    try {
-      const result = await window.api.prices.fetch(hId)
-      if ('error' in result) {
-        setPriceMessage((prev) => ({ ...prev, [hId]: result.error }))
-        return
-      }
-      const rawValue =
-        result.currency === 'USD' ? result.price.toFixed(2) : String(Math.round(result.price))
-      setPriceInputs((prev) => ({ ...prev, [hId]: rawValue }))
-      setPriceMessage((prev) => ({
-        ...prev,
-        [hId]: `현재가 ${formatMoney(result.price, result.currency)} (${result.source})`
-      }))
-    } finally {
-      setFetchingHoldingId(null)
-    }
-  }
-
-  async function handleSavePriceSnapshot(hId: number): Promise<void> {
-    const value = parseFloat(priceInputs[hId] ?? '')
-    if (!Number.isFinite(value) || value <= 0) return
-    await window.api.priceSnapshots.upsert({
-      holdingId: hId,
-      yearMonth: currentYearMonth(),
-      price: value,
-      source: 'manual'
-    })
-    const snap = await window.api.holdings.snapshot(hId)
-    setSnapshots((prev) => ({ ...prev, [hId]: snap }))
-    setPriceMessage((prev) => ({ ...prev, [hId]: '이번 달 시세로 저장됨' }))
   }
 
   return (
@@ -255,7 +204,20 @@ function TransactionEntryPage(): React.JSX.Element {
             </select>
           </label>
 
-          {(type === 'BUY' || type === 'SELL' || type === 'ADJUST') && (
+          {type === 'ADJUST' && (
+            <label className="field-type">
+              정리 대상
+              <select
+                value={adjustTarget}
+                onChange={(e) => setAdjustTarget(e.target.value as 'holding' | 'cash')}
+              >
+                <option value="holding">종목</option>
+                <option value="cash">예수금</option>
+              </select>
+            </label>
+          )}
+
+          {isHoldingShaped && (
             <>
               <label className="field-holding">
                 종목
@@ -292,7 +254,7 @@ function TransactionEntryPage(): React.JSX.Element {
             </>
           )}
 
-          {(type === 'DEPOSIT' || type === 'WITHDRAWAL' || type === 'DIVIDEND') && (
+          {isCashShaped && (
             <label className="field-amount">
               금액{isForeignAccount ? (inputInKrw ? ' (₩)' : ' ($)') : ''}
               <input
@@ -331,7 +293,7 @@ function TransactionEntryPage(): React.JSX.Element {
             </button>
           </div>
 
-          {(type === 'BUY' || type === 'SELL' || type === 'ADJUST') &&
+          {isHoldingShaped &&
             quantity &&
             price &&
             !Number.isNaN(parseFloat(quantity) * toStoredAmount(price)) && (
@@ -347,101 +309,18 @@ function TransactionEntryPage(): React.JSX.Element {
                   : displayMoney(parseFloat(quantity) * toStoredAmount(price))}
               </p>
             )}
+
+          {type === 'ADJUST' &&
+            adjustTarget === 'cash' &&
+            amount &&
+            !Number.isNaN(toStoredAmount(amount)) && (
+              <p className="muted field-hint">
+                정리 (예수금 증가): {displayMoney(toStoredAmount(amount))}
+              </p>
+            )}
         </form>
         {formError && <p className="error-text">{formError}</p>}
       </section>
-
-      {accountHoldings.length > 0 && (
-        <section className="card">
-          <h3>현재가 갱신</h3>
-          <table className="data-table compact-table">
-            <thead>
-              <tr>
-                <th>종목</th>
-                <th>보유수량</th>
-                <th>평단가</th>
-                <th>현재가{isForeignAccount ? (inputInKrw ? ' (₩)' : ' ($)') : ''}</th>
-                <th>수익률</th>
-                <th>수익금</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {accountHoldings.map((h) => {
-                const snap = snapshots[h.id]
-                const rawInput = priceInputs[h.id] ?? ''
-                const currentPriceNum = parseFloat(rawInput)
-                const hasCurrentPrice = Number.isFinite(currentPriceNum) && currentPriceNum > 0
-                const profitRate =
-                  snap && snap.avgCost && hasCurrentPrice
-                    ? ((currentPriceNum - snap.avgCost) / snap.avgCost) * 100
-                    : null
-                const profitAmount =
-                  snap && snap.avgCost != null && snap.quantity > 0 && hasCurrentPrice
-                    ? (currentPriceNum - snap.avgCost) * snap.quantity
-                    : null
-                const displayInputValue =
-                  isForeignAccount && inputInKrw && rate && rawInput
-                    ? (parseFloat(rawInput) * rate).toFixed(0)
-                    : rawInput
-                return (
-                  <tr key={h.id}>
-                    <td>{h.name}</td>
-                    <td>{snap ? snap.quantity.toLocaleString() : '-'}</td>
-                    <td>
-                      {snap && snap.quantity > 0 && snap.avgCost != null
-                        ? displayMoney(snap.avgCost)
-                        : snap && snap.avgCost != null
-                          ? `${displayMoney(snap.avgCost)} (전량 매도)`
-                          : '-'}
-                    </td>
-                    <td className="valuation-cell">
-                      <input
-                        type="number"
-                        value={displayInputValue}
-                        onChange={(e) => {
-                          const typed = e.target.value
-                          const stored =
-                            isForeignAccount && inputInKrw && rate && typed
-                              ? String(parseFloat(typed) / rate)
-                              : typed
-                          setPriceInputs((prev) => ({ ...prev, [h.id]: stored }))
-                        }}
-                      />
-                      {h.priceSymbol && (
-                        <button
-                          type="button"
-                          className="ghost-button"
-                          disabled={fetchingHoldingId === h.id}
-                          onClick={() => handleAutoFetchPrice(h.id)}
-                        >
-                          {fetchingHoldingId === h.id ? '조회 중…' : '새로고침'}
-                        </button>
-                      )}
-                    </td>
-                    <td className={profitRate == null ? '' : profitRate >= 0 ? 'gain' : 'loss'}>
-                      {profitRate != null ? `${profitRate.toFixed(2)}%` : '-'}
-                    </td>
-                    <td className={profitAmount == null ? '' : profitAmount >= 0 ? 'gain' : 'loss'}>
-                      {profitAmount != null ? displayMoney(profitAmount) : '-'}
-                    </td>
-                    <td>
-                      <button type="button" onClick={() => handleSavePriceSnapshot(h.id)}>
-                        저장
-                      </button>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-          {accountHoldings.some((h) => priceMessage[h.id]) && (
-            <p className="muted">
-              {accountHoldings.map((h) => priceMessage[h.id]).filter(Boolean).join(' / ')}
-            </p>
-          )}
-        </section>
-      )}
 
       <section className="card">
         <h3>최근 거래</h3>

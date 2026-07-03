@@ -29,7 +29,7 @@ function PrincipalVsValueChart({ data }: { data: MonthlySummaryRow[] }): React.J
         <Legend wrapperStyle={{ fontSize: 11 }} />
         <Area
           type="monotone"
-          dataKey="cumulativeContribution"
+          dataKey="principal"
           name="누적 원금"
           fill="var(--chart-principal-fill, #cbd5e1)"
           stroke="var(--chart-principal-stroke, #64748b)"

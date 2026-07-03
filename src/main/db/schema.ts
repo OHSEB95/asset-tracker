@@ -42,10 +42,19 @@ CREATE TABLE IF NOT EXISTS transactions (
        AND amount IS NOT NULL AND amount > 0
        AND quantity IS NULL AND price IS NULL AND realized_pnl IS NULL)
     OR
-    (type IN ('BUY','ADJUST')
+    (type = 'BUY'
        AND quantity IS NOT NULL AND quantity > 0
        AND price IS NOT NULL AND price > 0
        AND amount IS NULL AND realized_pnl IS NULL)
+    OR
+    (type = 'ADJUST' AND realized_pnl IS NULL AND (
+      (quantity IS NOT NULL AND quantity > 0
+         AND price IS NOT NULL AND price > 0
+         AND amount IS NULL)
+      OR
+      (amount IS NOT NULL AND amount > 0
+         AND quantity IS NULL AND price IS NULL)
+    ))
     OR
     (type = 'SELL'
        AND quantity IS NOT NULL AND quantity > 0

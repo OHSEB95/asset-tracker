@@ -2,6 +2,7 @@ import Database from 'better-sqlite3'
 import { existsSync, mkdirSync, copyFileSync, readdirSync, statSync, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
 import { DEFAULT_ACCOUNT_TYPES, SCHEMA_SQL } from './schema'
+import { markAsLatestSchema, runPendingMigrations } from './migrations'
 
 const DB_FILE_NAME = 'asset-tracker.db'
 const BACKUP_DIR_NAME = 'backups'
@@ -52,6 +53,7 @@ export function openDatabase(dataDir: string): Database.Database {
 
   mkdirSync(dataDir, { recursive: true })
   const dbPath = join(dataDir, DB_FILE_NAME)
+  const isNewDb = !existsSync(dbPath)
 
   backupBeforeOpen(dataDir, dbPath)
 
@@ -68,6 +70,12 @@ export function openDatabase(dataDir: string): Database.Database {
 
   instance.exec(SCHEMA_SQL)
   seedAccountTypes(instance)
+
+  if (isNewDb) {
+    markAsLatestSchema(instance)
+  } else {
+    runPendingMigrations(instance)
+  }
 
   db = instance
   currentDataDir = dataDir

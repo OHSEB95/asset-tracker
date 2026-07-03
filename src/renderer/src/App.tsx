@@ -4,12 +4,14 @@ import { ExchangeRateProvider, useExchangeRateContext } from './state/ExchangeRa
 import SettingsPage from './pages/SettingsPage'
 import TransactionEntryPage from './pages/TransactionEntryPage'
 import DashboardPage from './pages/DashboardPage'
+import HoldingsPage from './pages/HoldingsPage'
 
-type Tab = 'dashboard' | 'entry' | 'settings'
+type Tab = 'dashboard' | 'entry' | 'holdings' | 'settings'
 
 const TABS: Array<{ key: Tab; label: string }> = [
   { key: 'dashboard', label: '대시보드' },
   { key: 'entry', label: '거래 입력' },
+  { key: 'holdings', label: '보유종목' },
   { key: 'settings', label: '설정' }
 ]
 
@@ -51,6 +53,7 @@ function App(): React.JSX.Element {
           <main className="tab-content">
             {tab === 'dashboard' && <DashboardPage />}
             {tab === 'entry' && <TransactionEntryPage />}
+            {tab === 'holdings' && <HoldingsPage />}
             {tab === 'settings' && <SettingsPage />}
           </main>
         </div>

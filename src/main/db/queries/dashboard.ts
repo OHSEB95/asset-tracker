@@ -83,7 +83,7 @@ export async function getMonthlySummary(filter: DashboardFilter): Promise<Monthl
       dividends: 0,
       realizedPnl: 0,
       valuation: 0,
-      cumulativeContribution: 0
+      principal: 0
     }))
   }
 
@@ -166,16 +166,20 @@ export async function getMonthlySummary(filter: DashboardFilter): Promise<Monthl
     return price
   }
 
+  // 원금 = 예수금 + Σ(보유수량 × 평단가), 평가금액 = 예수금 + Σ(보유수량 × 현재가)
   const valuationByMonth = new Map<string, number>()
+  const principalByMonth = new Map<string, number>()
   for (const month of months) {
-    let total = 0
+    let valuationTotal = 0
+    let principalTotal = 0
     const txUpToMonth = allTx.filter((t) => t.date.slice(0, 7) <= month)
 
     for (const acct of accounts) {
       const fx = acct.accountTypeCode === 'FOREIGN_STOCK' ? rate : 1
       const acctTx = txUpToMonth.filter((t) => t.accountId === acct.id)
       const acctCash = acctTx.reduce((sum, t) => sum + cashImpact(t), 0)
-      total += acctCash * fx
+      valuationTotal += acctCash * fx
+      principalTotal += acctCash * fx
 
       const acctHoldings = holdings.filter((h) => h.accountId === acct.id)
       for (const holding of acctHoldings) {
@@ -187,25 +191,24 @@ export async function getMonthlySummary(filter: DashboardFilter): Promise<Monthl
         if (holdingTx.length === 0) continue
         const state = replayHoldingState(holdingTx)
         if (state.quantity <= 0) continue
+        if (state.avgCost != null) principalTotal += state.quantity * state.avgCost * fx
         const price = forwardFilledPrice(holding.id, month) ?? state.avgCost
-        if (price != null) total += state.quantity * price * fx
+        if (price != null) valuationTotal += state.quantity * price * fx
       }
     }
-    valuationByMonth.set(month, total)
+    valuationByMonth.set(month, valuationTotal)
+    principalByMonth.set(month, principalTotal)
   }
 
-  let cumulative = 0
   return months.map((yearMonth) => {
     const flow = flowByMonth.get(yearMonth)
-    const contribution = flow?.contribution ?? 0
-    cumulative += contribution
     return {
       yearMonth,
-      contribution,
+      contribution: flow?.contribution ?? 0,
       dividends: flow?.dividends ?? 0,
       realizedPnl: flow?.realizedPnl ?? 0,
       valuation: valuationByMonth.get(yearMonth) ?? 0,
-      cumulativeContribution: cumulative
+      principal: principalByMonth.get(yearMonth) ?? 0
     }
   })
 }

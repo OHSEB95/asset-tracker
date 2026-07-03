@@ -53,7 +53,10 @@ function getHoldingTransactionsUpTo(holdingId: number, date: string): Transactio
 export function createTransaction(input: TransactionInput): Transaction {
   const db = getDatabase()
 
-  if (input.type === 'BUY' || input.type === 'SELL' || input.type === 'ADJUST') {
+  const isHoldingAdjust = input.type === 'ADJUST' && !!input.holdingId
+  const isCashAdjust = input.type === 'ADJUST' && !input.holdingId
+
+  if (input.type === 'BUY' || input.type === 'SELL' || isHoldingAdjust) {
     if (!input.holdingId) {
       throw new Error('매수/매도/정리 거래에는 보유종목을 선택해야 합니다.')
     }
@@ -76,7 +79,11 @@ export function createTransaction(input: TransactionInput): Transaction {
     realizedPnl = (input.price! - avgCostAtDate) * input.quantity!
   }
 
-  const isCashType = input.type === 'DEPOSIT' || input.type === 'WITHDRAWAL' || input.type === 'DIVIDEND'
+  const isCashType =
+    input.type === 'DEPOSIT' ||
+    input.type === 'WITHDRAWAL' ||
+    input.type === 'DIVIDEND' ||
+    isCashAdjust
   if (isCashType && (!input.amount || input.amount <= 0)) {
     throw new Error('금액을 올바르게 입력해주세요.')
   }
@@ -89,7 +96,7 @@ export function createTransaction(input: TransactionInput): Transaction {
     )
     .run({
       accountId: input.accountId,
-      holdingId: input.holdingId ?? null,
+      holdingId: isCashAdjust ? null : (input.holdingId ?? null),
       type: input.type,
       date: input.date,
       quantity: isCashType ? null : (input.quantity ?? null),

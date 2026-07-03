@@ -61,7 +61,7 @@ function DashboardPage(): React.JSX.Element {
   }, [accountTypeCode])
 
   const latest = rows[rows.length - 1]
-  const totalGain = latest ? latest.valuation - latest.cumulativeContribution : 0
+  const totalGain = latest ? latest.valuation - latest.principal : 0
 
   return (
     <div className="dashboard-page">
@@ -93,7 +93,7 @@ function DashboardPage(): React.JSX.Element {
             <div>
               <span className="summary-label">누적 원금</span>
               <span className="summary-value">
-                {Math.round(latest.cumulativeContribution).toLocaleString()}원
+                {Math.round(latest.principal).toLocaleString()}원
               </span>
             </div>
             <div>
