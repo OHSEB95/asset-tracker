@@ -5,13 +5,13 @@ export interface HoldingState {
   avgCost: number | null
 }
 
-/** transactions must be pre-filtered to one holding's BUY/SELL rows, ordered by date ASC, id ASC. */
+/** transactions must be pre-filtered to one holding's BUY/SELL/ADJUST rows, ordered by date ASC, id ASC. */
 export function replayHoldingState(transactions: Transaction[]): HoldingState {
   let quantity = 0
   let avgCost: number | null = null
 
   for (const tx of transactions) {
-    if (tx.type === 'BUY') {
+    if (tx.type === 'BUY' || tx.type === 'ADJUST') {
       const buyQty = tx.quantity!
       const buyPrice = tx.price!
       const prevCost: number = avgCost ?? 0
@@ -37,6 +37,8 @@ export function cashImpact(tx: Pick<Transaction, 'type' | 'amount' | 'quantity' 
       return -(tx.quantity! * tx.price!)
     case 'SELL':
       return tx.quantity! * tx.price!
+    case 'ADJUST':
+      return 0
     default:
       return 0
   }

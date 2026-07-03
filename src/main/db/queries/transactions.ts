@@ -37,13 +37,13 @@ export function listTransactionsForAccount(filter: TransactionListFilter): Trans
   return rows.map(rowToTransaction)
 }
 
-/** BUY/SELL transactions for a holding, up to and including a given date, ordered for replay. */
+/** BUY/SELL/ADJUST transactions for a holding, up to and including a given date, ordered for replay. */
 function getHoldingTransactionsUpTo(holdingId: number, date: string): Transaction[] {
   const db = getDatabase()
   const rows = db
     .prepare(
       `SELECT * FROM transactions
-       WHERE holding_id = @holdingId AND type IN ('BUY','SELL') AND date <= @date
+       WHERE holding_id = @holdingId AND type IN ('BUY','SELL','ADJUST') AND date <= @date
        ORDER BY date ASC, id ASC`
     )
     .all({ holdingId, date })
@@ -53,9 +53,9 @@ function getHoldingTransactionsUpTo(holdingId: number, date: string): Transactio
 export function createTransaction(input: TransactionInput): Transaction {
   const db = getDatabase()
 
-  if (input.type === 'BUY' || input.type === 'SELL') {
+  if (input.type === 'BUY' || input.type === 'SELL' || input.type === 'ADJUST') {
     if (!input.holdingId) {
-      throw new Error('매수/매도 거래에는 보유종목을 선택해야 합니다.')
+      throw new Error('매수/매도/정리 거래에는 보유종목을 선택해야 합니다.')
     }
     if (!input.quantity || input.quantity <= 0 || !input.price || input.price <= 0) {
       throw new Error('수량과 단가를 올바르게 입력해주세요.')
@@ -108,7 +108,7 @@ export function deleteTransaction(id: number): void {
   const row = db.prepare(`SELECT * FROM transactions WHERE id = ?`).get(id) as any
   if (!row) return
 
-  if (row.type === 'BUY' && row.holding_id) {
+  if ((row.type === 'BUY' || row.type === 'ADJUST') && row.holding_id) {
     const laterSell = db
       .prepare(
         `SELECT COUNT(*) as cnt FROM transactions
@@ -118,7 +118,7 @@ export function deleteTransaction(id: number): void {
       .get({ holdingId: row.holding_id, date: row.date, id: row.id }) as { cnt: number }
 
     if (laterSell.cnt > 0) {
-      throw new Error('이 매수 이후 매도 거래가 있어 삭제할 수 없습니다. 먼저 관련 매도 거래를 삭제해주세요.')
+      throw new Error('이 거래 이후 매도 거래가 있어 삭제할 수 없습니다. 먼저 관련 매도 거래를 삭제해주세요.')
     }
   }
 

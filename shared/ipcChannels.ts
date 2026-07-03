@@ -18,6 +18,8 @@ export const IPC = {
   PRICES_FETCH: 'prices:fetch',
   PRICE_SNAPSHOTS_UPSERT: 'priceSnapshots:upsert',
 
+  RATES_GET_USD_KRW: 'rates:getUsdKrw',
+
   SETTINGS_GET: 'settings:get',
   SETTINGS_SET_DATA_DIR: 'settings:setDataDir',
   SETTINGS_CHOOSE_DATA_DIR: 'settings:chooseDataDir',

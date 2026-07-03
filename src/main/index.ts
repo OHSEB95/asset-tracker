@@ -7,6 +7,7 @@ import { registerAccountsIpc } from './ipc/accounts'
 import { registerHoldingsIpc } from './ipc/holdings'
 import { registerTransactionsIpc } from './ipc/transactions'
 import { registerPricesIpc } from './ipc/prices'
+import { registerRatesIpc } from './ipc/rates'
 import { registerSettingsIpc } from './ipc/settings'
 import { registerDashboardIpc } from './ipc/dashboard'
 
@@ -74,6 +75,7 @@ app.whenReady().then(() => {
   registerHoldingsIpc()
   registerTransactionsIpc()
   registerPricesIpc()
+  registerRatesIpc()
   registerSettingsIpc()
   registerDashboardIpc()
 

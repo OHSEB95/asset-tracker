@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useAccountsContext } from '../state/AccountsContext'
+import { useExchangeRateContext } from '../state/ExchangeRateContext'
 import type { HoldingSnapshot, Transaction, TransactionInput, TransactionType } from '@shared/types'
 
 const TYPE_LABEL: Record<TransactionType, string> = {
@@ -7,6 +8,7 @@ const TYPE_LABEL: Record<TransactionType, string> = {
   WITHDRAWAL: '출금',
   BUY: '매수',
   SELL: '매도',
+  ADJUST: '정리',
   DIVIDEND: '배당'
 }
 
@@ -20,13 +22,17 @@ function currentYearMonth(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
 
-function formatWon(value: number | null): string {
+function formatMoney(value: number | null, currency: 'KRW' | 'USD'): string {
   if (value == null) return '-'
+  if (currency === 'USD') {
+    return `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  }
   return `${Math.round(value).toLocaleString()}원`
 }
 
 function TransactionEntryPage(): React.JSX.Element {
   const { accountTypes, accounts, holdings, refresh } = useAccountsContext()
+  const { rate } = useExchangeRateContext()
 
   const [accountId, setAccountId] = useState<number | null>(null)
   const [date, setDate] = useState(todayDate())
@@ -38,6 +44,7 @@ function TransactionEntryPage(): React.JSX.Element {
   const [note, setNote] = useState('')
   const [formError, setFormError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [inputInKrw, setInputInKrw] = useState(false)
 
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [snapshots, setSnapshots] = useState<Record<number, HoldingSnapshot>>({})
@@ -52,7 +59,13 @@ function TransactionEntryPage(): React.JSX.Element {
     }
   }, [accounts, accountId])
 
+  const selectedAccount = accounts.find((a) => a.id === accountId)
+  const isForeignAccount = selectedAccount?.accountTypeCode === 'FOREIGN_STOCK'
   const accountHoldings = holdings.filter((h) => h.accountId === accountId && !h.isArchived)
+
+  useEffect(() => {
+    setInputInKrw(false)
+  }, [accountId])
 
   useEffect(() => {
     if (accountId == null) return
@@ -71,6 +84,20 @@ function TransactionEntryPage(): React.JSX.Element {
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accountId, holdings])
+
+  // 해외주식 계좌는 항상 USD가 저장 기준. inputInKrw는 입력/표시 시점의 변환 방향만 바꾼다.
+  function toStoredAmount(rawInput: string): number {
+    const parsed = parseFloat(rawInput)
+    if (isForeignAccount && inputInKrw && rate) return parsed / rate
+    return parsed
+  }
+
+  function displayMoney(value: number | null): string {
+    if (value == null) return '-'
+    if (!isForeignAccount) return formatMoney(value, 'KRW')
+    if (inputInKrw && rate) return formatMoney(value * rate, 'KRW')
+    return formatMoney(value, 'USD')
+  }
 
   function resetForm(): void {
     setQuantity('')
@@ -99,12 +126,12 @@ function TransactionEntryPage(): React.JSX.Element {
       date,
       note: note || null
     }
-    if (type === 'BUY' || type === 'SELL') {
+    if (type === 'BUY' || type === 'SELL' || type === 'ADJUST') {
       input.holdingId = holdingId
       input.quantity = parseFloat(quantity)
-      input.price = parseFloat(price)
+      input.price = toStoredAmount(price)
     } else {
-      input.amount = parseFloat(amount)
+      input.amount = toStoredAmount(amount)
       if (type === 'DIVIDEND') input.holdingId = holdingId
     }
 
@@ -142,10 +169,12 @@ function TransactionEntryPage(): React.JSX.Element {
         setPriceMessage((prev) => ({ ...prev, [hId]: result.error }))
         return
       }
-      setPriceInputs((prev) => ({ ...prev, [hId]: String(Math.round(result.price)) }))
+      const rawValue =
+        result.currency === 'USD' ? result.price.toFixed(2) : String(Math.round(result.price))
+      setPriceInputs((prev) => ({ ...prev, [hId]: rawValue }))
       setPriceMessage((prev) => ({
         ...prev,
-        [hId]: `현재가 ${result.price.toLocaleString()}원 (${result.source})`
+        [hId]: `현재가 ${formatMoney(result.price, result.currency)} (${result.source})`
       }))
     } finally {
       setFetchingHoldingId(null)
@@ -170,6 +199,15 @@ function TransactionEntryPage(): React.JSX.Element {
     <div className="page">
       <section className="card">
         <h2>거래 입력</h2>
+        {isForeignAccount && (
+          <button
+            type="button"
+            className="ghost-button currency-toggle"
+            onClick={() => setInputInKrw((v) => !v)}
+          >
+            {inputInKrw ? 'KRW 환산 입력 중 (누르면 USD로)' : 'USD 입력 중 (누르면 KRW 환산으로)'}
+          </button>
+        )}
         <form onSubmit={handleSubmit} className="tx-form">
           <label className="field-date">
             날짜
@@ -207,7 +245,7 @@ function TransactionEntryPage(): React.JSX.Element {
             </select>
           </label>
 
-          {(type === 'BUY' || type === 'SELL') && (
+          {(type === 'BUY' || type === 'SELL' || type === 'ADJUST') && (
             <>
               <label className="field-holding">
                 종목
@@ -233,7 +271,7 @@ function TransactionEntryPage(): React.JSX.Element {
                 />
               </label>
               <label className="field-price">
-                단가
+                단가{isForeignAccount ? (inputInKrw ? ' (₩)' : ' ($)') : ''}
                 <input
                   type="number"
                   step="any"
@@ -246,7 +284,7 @@ function TransactionEntryPage(): React.JSX.Element {
 
           {(type === 'DEPOSIT' || type === 'WITHDRAWAL' || type === 'DIVIDEND') && (
             <label className="field-amount">
-              금액
+              금액{isForeignAccount ? (inputInKrw ? ' (₩)' : ' ($)') : ''}
               <input
                 type="number"
                 value={amount}
@@ -283,13 +321,20 @@ function TransactionEntryPage(): React.JSX.Element {
             </button>
           </div>
 
-          {(type === 'BUY' || type === 'SELL') &&
+          {(type === 'BUY' || type === 'SELL' || type === 'ADJUST') &&
             quantity &&
             price &&
-            !Number.isNaN(parseFloat(quantity) * parseFloat(price)) && (
+            !Number.isNaN(parseFloat(quantity) * toStoredAmount(price)) && (
               <p className="muted field-hint">
-                {type === 'BUY' ? '예수금 차감' : '예수금 증가'}:{' '}
-                {formatWon(parseFloat(quantity) * parseFloat(price))}
+                {type === 'ADJUST'
+                  ? '정리 (예수금 변동 없음)'
+                  : type === 'SELL'
+                    ? '예수금 증가'
+                    : '예수금 차감'}
+                :{' '}
+                {type === 'ADJUST'
+                  ? displayMoney(0)
+                  : displayMoney(parseFloat(quantity) * toStoredAmount(price))}
               </p>
             )}
         </form>
@@ -305,31 +350,41 @@ function TransactionEntryPage(): React.JSX.Element {
                 <th>종목</th>
                 <th>보유수량</th>
                 <th>평단가</th>
-                <th>이번 달 시세</th>
+                <th>이번 달 시세{isForeignAccount ? (inputInKrw ? ' (₩)' : ' ($)') : ''}</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
               {accountHoldings.map((h) => {
                 const snap = snapshots[h.id]
+                const rawInput = priceInputs[h.id] ?? ''
+                const displayInputValue =
+                  isForeignAccount && inputInKrw && rate && rawInput
+                    ? (parseFloat(rawInput) * rate).toFixed(0)
+                    : rawInput
                 return (
                   <tr key={h.id}>
                     <td>{h.name}</td>
                     <td>{snap ? snap.quantity.toLocaleString() : '-'}</td>
                     <td>
                       {snap && snap.quantity > 0 && snap.avgCost != null
-                        ? formatWon(snap.avgCost)
+                        ? displayMoney(snap.avgCost)
                         : snap && snap.avgCost != null
-                          ? `${formatWon(snap.avgCost)} (전량 매도)`
+                          ? `${displayMoney(snap.avgCost)} (전량 매도)`
                           : '-'}
                     </td>
                     <td className="valuation-cell">
                       <input
                         type="number"
-                        value={priceInputs[h.id] ?? ''}
-                        onChange={(e) =>
-                          setPriceInputs((prev) => ({ ...prev, [h.id]: e.target.value }))
-                        }
+                        value={displayInputValue}
+                        onChange={(e) => {
+                          const typed = e.target.value
+                          const stored =
+                            isForeignAccount && inputInKrw && rate && typed
+                              ? String(parseFloat(typed) / rate)
+                              : typed
+                          setPriceInputs((prev) => ({ ...prev, [h.id]: stored }))
+                        }}
                       />
                       {h.priceSymbol && (
                         <button
@@ -387,15 +442,15 @@ function TransactionEntryPage(): React.JSX.Element {
                   <td>{TYPE_LABEL[t.type]}</td>
                   <td>{holdings.find((h) => h.id === t.holdingId)?.name ?? '-'}</td>
                   <td>{t.quantity != null ? t.quantity.toLocaleString() : '-'}</td>
-                  <td>{t.price != null ? formatWon(t.price) : '-'}</td>
+                  <td>{t.price != null ? displayMoney(t.price) : '-'}</td>
                   <td>
                     {t.amount != null
-                      ? formatWon(t.amount)
+                      ? displayMoney(t.amount)
                       : t.quantity != null && t.price != null
-                        ? formatWon(t.quantity * t.price)
+                        ? displayMoney(t.quantity * t.price)
                         : '-'}
                   </td>
-                  <td>{t.realizedPnl != null ? formatWon(t.realizedPnl) : '-'}</td>
+                  <td>{t.realizedPnl != null ? displayMoney(t.realizedPnl) : '-'}</td>
                   <td>{t.note ?? '-'}</td>
                   <td>
                     <button type="button" onClick={() => handleDelete(t.id)}>

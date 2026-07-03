@@ -34,7 +34,7 @@ export interface HoldingInput {
   priceSource?: PriceSource | null
 }
 
-export type TransactionType = 'DEPOSIT' | 'WITHDRAWAL' | 'BUY' | 'SELL' | 'DIVIDEND'
+export type TransactionType = 'DEPOSIT' | 'WITHDRAWAL' | 'BUY' | 'SELL' | 'ADJUST' | 'DIVIDEND'
 
 export interface Transaction {
   id: number
@@ -111,4 +111,10 @@ export interface DashboardFilter {
 
 export interface AppSettings {
   dataDirPath: string | null
+}
+
+export interface ExchangeRateInfo {
+  rate: number
+  fetchedAt: string
+  stale: boolean
 }

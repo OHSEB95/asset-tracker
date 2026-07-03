@@ -4,6 +4,7 @@ import type {
   AccountType,
   AppSettings,
   DashboardFilter,
+  ExchangeRateInfo,
   Holding,
   HoldingInput,
   HoldingSnapshot,
@@ -43,6 +44,9 @@ export interface Api {
   }
   priceSnapshots: {
     upsert(input: PriceSnapshotInput): Promise<void>
+  }
+  rates: {
+    getUsdKrw(): Promise<ExchangeRateInfo>
   }
   settings: {
     get(): Promise<AppSettings>

@@ -43,6 +43,9 @@ const api = {
   priceSnapshots: {
     upsert: (input: PriceSnapshotInput) => ipcRenderer.invoke(IPC.PRICE_SNAPSHOTS_UPSERT, input)
   },
+  rates: {
+    getUsdKrw: () => ipcRenderer.invoke(IPC.RATES_GET_USD_KRW)
+  },
   settings: {
     get: () => ipcRenderer.invoke(IPC.SETTINGS_GET),
     setDataDir: (dir: string) => ipcRenderer.invoke(IPC.SETTINGS_SET_DATA_DIR, dir),

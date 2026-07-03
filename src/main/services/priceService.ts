@@ -1,8 +1,15 @@
 import type { Holding, PriceFetchError, PriceFetchResult } from '@shared/types'
 
 const CACHE_TTL_MS = 60_000
+const FALLBACK_USD_KRW_RATE = 1400
 const priceCache = new Map<string, { result: PriceFetchResult; expiresAt: number }>()
-let fxCache: { rate: number; expiresAt: number } | null = null
+
+interface RateState {
+  rate: number
+  fetchedAt: string
+  expiresAt: number
+}
+let lastKnownRate: RateState | null = null
 
 function cacheKey(source: string, symbol: string): string {
   return `${source}:${symbol}`
@@ -33,13 +40,29 @@ async function fetchNaverDomesticPrice(symbol: string): Promise<PriceFetchResult
   return { price, currency: 'KRW', fetchedAt: new Date().toISOString(), source: 'naver' }
 }
 
-async function fetchUsdKrwRate(): Promise<number> {
-  if (fxCache && fxCache.expiresAt > Date.now()) return fxCache.rate
+async function fetchUsdKrwRateRaw(): Promise<number> {
   const data = await fetchJson('https://api.exchangerate-api.com/v4/latest/USD')
   const rate = data?.rates?.KRW
   if (typeof rate !== 'number') throw new Error('환율 정보를 찾을 수 없습니다')
-  fxCache = { rate, expiresAt: Date.now() + CACHE_TTL_MS }
   return rate
+}
+
+/** 절대 throw하지 않음 — 실패 시 마지막으로 성공한 환율, 그마저 없으면 고정값으로 대체. */
+export async function getUsdKrwRate(): Promise<{ rate: number; fetchedAt: string; stale: boolean }> {
+  if (lastKnownRate && lastKnownRate.expiresAt > Date.now()) {
+    return { rate: lastKnownRate.rate, fetchedAt: lastKnownRate.fetchedAt, stale: false }
+  }
+  try {
+    const rate = await fetchUsdKrwRateRaw()
+    const fetchedAt = new Date().toISOString()
+    lastKnownRate = { rate, fetchedAt, expiresAt: Date.now() + CACHE_TTL_MS }
+    return { rate, fetchedAt, stale: false }
+  } catch {
+    if (lastKnownRate) {
+      return { rate: lastKnownRate.rate, fetchedAt: lastKnownRate.fetchedAt, stale: true }
+    }
+    return { rate: FALLBACK_USD_KRW_RATE, fetchedAt: new Date().toISOString(), stale: true }
+  }
 }
 
 async function fetchYahooForeignPrice(symbol: string): Promise<PriceFetchResult> {
@@ -48,10 +71,9 @@ async function fetchYahooForeignPrice(symbol: string): Promise<PriceFetchResult>
   )
   const usdPrice = data?.chart?.result?.[0]?.meta?.regularMarketPrice
   if (typeof usdPrice !== 'number') throw new Error('가격 정보를 찾을 수 없습니다')
-  const rate = await fetchUsdKrwRate()
   return {
-    price: usdPrice * rate,
-    currency: 'KRW',
+    price: usdPrice,
+    currency: 'USD',
     fetchedAt: new Date().toISOString(),
     source: 'yahoo'
   }

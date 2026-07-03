@@ -103,7 +103,7 @@ export function getHoldingSnapshot(holdingId: number): HoldingSnapshot {
   const db = getDatabase()
   const rows = db
     .prepare(
-      `SELECT * FROM transactions WHERE holding_id = ? AND type IN ('BUY','SELL') ORDER BY date ASC, id ASC`
+      `SELECT * FROM transactions WHERE holding_id = ? AND type IN ('BUY','SELL','ADJUST') ORDER BY date ASC, id ASC`
     )
     .all(holdingId)
   const state = replayHoldingState(rows.map(rowToTransaction))

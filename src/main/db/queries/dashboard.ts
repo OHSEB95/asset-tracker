@@ -1,6 +1,7 @@
 import { getDatabase } from '../index'
 import type { Account, DashboardFilter, MonthlySummaryRow, Transaction } from '@shared/types'
 import { cashImpact, replayHoldingState } from './replay'
+import { getUsdKrwRate } from '../../services/priceService'
 
 function rowToAccount(row: any): Account {
   return {
@@ -57,7 +58,7 @@ function listAccountsForFilter(filter: DashboardFilter): Account[] {
   return rows.map(rowToAccount)
 }
 
-export function getMonthlySummary(filter: DashboardFilter): MonthlySummaryRow[] {
+export async function getMonthlySummary(filter: DashboardFilter): Promise<MonthlySummaryRow[]> {
   const db = getDatabase()
 
   const from = filter.from ?? '0000-01'
@@ -78,21 +79,36 @@ export function getMonthlySummary(filter: DashboardFilter): MonthlySummaryRow[] 
     }))
   }
 
+  const { rate } = await getUsdKrwRate()
+
   const placeholders = accountIds.map(() => '?').join(',')
 
-  // 1) 현금 흐름 집계 (원금/배당/매도손익) - SQL GROUP BY
+  // 1) 현금 흐름 집계 (원금/배당/매도손익) - SQL GROUP BY, 해외주식 계좌는 환율 곱해서 KRW로 환산
   const flowRows = db
     .prepare(
       `SELECT
-         substr(date, 1, 7) AS yearMonth,
-         SUM(CASE WHEN type = 'DEPOSIT' THEN amount ELSE 0 END) AS contribution,
-         SUM(CASE WHEN type = 'DIVIDEND' THEN amount ELSE 0 END) AS dividends,
-         SUM(CASE WHEN type = 'SELL' THEN realized_pnl ELSE 0 END) AS realizedPnl
-       FROM transactions
-       WHERE account_id IN (${placeholders}) AND substr(date,1,7) BETWEEN ? AND ?
-       GROUP BY substr(date, 1, 7)`
+         substr(t.date, 1, 7) AS yearMonth,
+         SUM(CASE
+               WHEN t.type = 'DEPOSIT' AND a.account_type_code = 'FOREIGN_STOCK' THEN t.amount * ?
+               WHEN t.type = 'DEPOSIT' THEN t.amount
+               ELSE 0
+             END) AS contribution,
+         SUM(CASE
+               WHEN t.type = 'DIVIDEND' AND a.account_type_code = 'FOREIGN_STOCK' THEN t.amount * ?
+               WHEN t.type = 'DIVIDEND' THEN t.amount
+               ELSE 0
+             END) AS dividends,
+         SUM(CASE
+               WHEN t.type = 'SELL' AND a.account_type_code = 'FOREIGN_STOCK' THEN t.realized_pnl * ?
+               WHEN t.type = 'SELL' THEN t.realized_pnl
+               ELSE 0
+             END) AS realizedPnl
+       FROM transactions t
+       JOIN accounts a ON a.id = t.account_id
+       WHERE t.account_id IN (${placeholders}) AND substr(t.date,1,7) BETWEEN ? AND ?
+       GROUP BY substr(t.date, 1, 7)`
     )
-    .all(...accountIds, from, to) as Array<{
+    .all(rate, rate, rate, ...accountIds, from, to) as Array<{
     yearMonth: string
     contribution: number
     dividends: number
@@ -148,19 +164,23 @@ export function getMonthlySummary(filter: DashboardFilter): MonthlySummaryRow[] 
     const txUpToMonth = allTx.filter((t) => t.date.slice(0, 7) <= month)
 
     for (const acct of accounts) {
+      const fx = acct.accountTypeCode === 'FOREIGN_STOCK' ? rate : 1
       const acctTx = txUpToMonth.filter((t) => t.accountId === acct.id)
-      total += acctTx.reduce((sum, t) => sum + cashImpact(t), 0)
+      const acctCash = acctTx.reduce((sum, t) => sum + cashImpact(t), 0)
+      total += acctCash * fx
 
       const acctHoldings = holdings.filter((h) => h.accountId === acct.id)
       for (const holding of acctHoldings) {
         const holdingTx = acctTx.filter(
-          (t) => t.holdingId === holding.id && (t.type === 'BUY' || t.type === 'SELL')
+          (t) =>
+            t.holdingId === holding.id &&
+            (t.type === 'BUY' || t.type === 'SELL' || t.type === 'ADJUST')
         )
         if (holdingTx.length === 0) continue
         const state = replayHoldingState(holdingTx)
         if (state.quantity <= 0) continue
         const price = forwardFilledPrice(holding.id, month) ?? state.avgCost
-        if (price != null) total += state.quantity * price
+        if (price != null) total += state.quantity * price * fx
       }
     }
     valuationByMonth.set(month, total)
