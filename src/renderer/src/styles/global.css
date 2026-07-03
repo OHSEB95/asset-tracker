@@ -376,7 +376,8 @@ td.loss {
   min-height: 0;
 }
 
-.dashboard-principal-chart h3 {
+.dashboard-principal-chart h3,
+.dashboard-lower .chart-card h3 {
   font-size: 13px;
 }
 

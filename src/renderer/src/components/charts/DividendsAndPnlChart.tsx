@@ -18,20 +18,24 @@ function formatWon(value: unknown): string {
 function DividendsAndPnlChart({ data }: { data: MonthlySummaryRow[] }): React.JSX.Element {
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <ComposedChart data={data} margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
+      <ComposedChart data={data} margin={{ top: 10, right: 4, left: 4, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" />
-        <XAxis dataKey="yearMonth" />
+        <XAxis dataKey="yearMonth" tick={{ fontSize: 11 }} />
         <YAxis
           yAxisId="left"
+          width={44}
+          tick={{ fontSize: 11 }}
           tickFormatter={(v) => `${Math.round(v / 10000).toLocaleString()}만`}
         />
         <YAxis
           yAxisId="right"
           orientation="right"
+          width={44}
+          tick={{ fontSize: 11 }}
           tickFormatter={(v) => `${Math.round(v / 10000).toLocaleString()}만`}
         />
-        <Tooltip formatter={(value) => formatWon(value)} />
-        <Legend />
+        <Tooltip formatter={(value) => formatWon(value)} wrapperStyle={{ fontSize: 11 }} />
+        <Legend wrapperStyle={{ fontSize: 11 }} />
         <ReferenceLine yAxisId="right" y={0} stroke="#94a3b8" />
         <Line
           yAxisId="left"
