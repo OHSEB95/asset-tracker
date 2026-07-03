@@ -376,11 +376,15 @@ td.loss {
   min-height: 0;
 }
 
+.dashboard-principal-chart h3 {
+  font-size: 13px;
+}
+
 .dashboard-lower {
   flex: 1 1 auto;
   min-height: 0;
   display: grid;
-  grid-template-columns: 1.4fr 1fr;
+  grid-template-columns: 3fr 7fr;
   gap: 12px;
 }
 

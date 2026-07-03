@@ -20,10 +20,13 @@ function PrincipalVsValueChart({ data }: { data: MonthlySummaryRow[] }): React.J
     <ResponsiveContainer width="100%" height="100%">
       <ComposedChart data={data} margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" />
-        <XAxis dataKey="yearMonth" />
-        <YAxis tickFormatter={(v) => `${Math.round(v / 10000).toLocaleString()}만`} />
-        <Tooltip formatter={(value) => formatWon(value)} />
-        <Legend />
+        <XAxis dataKey="yearMonth" tick={{ fontSize: 11 }} />
+        <YAxis
+          tick={{ fontSize: 11 }}
+          tickFormatter={(v) => `${Math.round(v / 10000).toLocaleString()}만`}
+        />
+        <Tooltip formatter={(value) => formatWon(value)} wrapperStyle={{ fontSize: 11 }} />
+        <Legend wrapperStyle={{ fontSize: 11 }} />
         <Area
           type="monotone"
           dataKey="cumulativeContribution"
