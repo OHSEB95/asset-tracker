@@ -62,6 +62,19 @@ body {
   color: #d97706;
 }
 
+.user-badge {
+  margin-left: 12px;
+  align-self: center;
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.user-badge-name {
+  font-weight: 700;
+  color: var(--accent);
+}
+
 .tab-content {
   flex: 1;
   overflow-y: auto;
@@ -488,6 +501,22 @@ td.loss {
   min-height: 0;
 }
 
+.split-chart-card {
+  gap: 8px;
+}
+
+.split-chart-half {
+  flex: 1 1 50%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.split-chart-half + .split-chart-half {
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
 .asset-list-card {
   display: flex;
   flex-direction: column;
@@ -564,4 +593,103 @@ td.loss {
   gap: 4px;
   font-size: 13px;
   color: var(--text);
+}
+
+.login-screen {
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+}
+
+.login-card {
+  width: 320px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 36px 32px 28px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
+}
+
+.login-logo {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  margin-bottom: 14px;
+}
+
+.login-title {
+  margin: 0 0 28px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  text-align: center;
+}
+
+.login-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.login-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.login-field input {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
+.login-message {
+  margin: 0;
+  text-align: center;
+}
+
+.login-checkboxes {
+  display: flex;
+  justify-content: space-between;
+  margin-top: -2px;
+}
+
+.login-checkboxes label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.login-checkboxes input {
+  width: auto;
+  padding: 0;
+}
+
+.login-submit {
+  width: 100%;
+  padding: 10px 0;
+  font-size: 14px;
+  margin-top: 4px;
+}
+
+.login-switch {
+  margin-top: 18px;
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
 }

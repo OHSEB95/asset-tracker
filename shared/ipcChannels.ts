@@ -25,5 +25,16 @@ export const IPC = {
   SETTINGS_CHOOSE_DATA_DIR: 'settings:chooseDataDir',
 
   DASHBOARD_GET_MONTHLY_SUMMARY: 'dashboard:getMonthlySummary',
-  DASHBOARD_GET_PORTFOLIO_SNAPSHOT: 'dashboard:getPortfolioSnapshot'
+  DASHBOARD_GET_PORTFOLIO_SNAPSHOT: 'dashboard:getPortfolioSnapshot',
+
+  AUTH_LOGIN: 'auth:login',
+  AUTH_REGISTER: 'auth:register',
+  AUTH_LOGOUT: 'auth:logout',
+  AUTH_GET_CURRENT_USER: 'auth:getCurrentUser',
+  AUTH_GET_REMEMBERED_EMAIL: 'auth:getRememberedEmail',
+  AUTH_CHANGE_PASSWORD: 'auth:changePassword',
+  AUTH_FORCE_LOGOUT: 'auth:forceLogout',
+
+  SYNC_PUSH: 'sync:push',
+  SYNC_GET_STATUS: 'sync:getStatus'
 } as const

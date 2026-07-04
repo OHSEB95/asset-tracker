@@ -28,13 +28,16 @@ function backupBeforeOpen(dataDir: string, dbPath: string): void {
 }
 
 function seedAccountTypes(instance: Database.Database): void {
-  const insert = instance.prepare(
-    `INSERT OR IGNORE INTO account_types (code, label_ko, sort_order)
-     VALUES (@code, @labelKo, @sortOrder)`
+  // ON CONFLICT DO UPDATE: 코드에 정의된 라벨/정렬순서가 바뀌면 기존 DB에도 항상 반영되도록 함
+  // (account_types는 사용자 데이터가 아니라 코드가 정의하는 참조용 목록이라 매번 최신화해도 안전함)
+  const upsert = instance.prepare(
+    `INSERT INTO account_types (code, label_ko, sort_order)
+     VALUES (@code, @labelKo, @sortOrder)
+     ON CONFLICT(code) DO UPDATE SET label_ko = excluded.label_ko, sort_order = excluded.sort_order`
   )
   const tx = instance.transaction(() => {
     for (const type of DEFAULT_ACCOUNT_TYPES) {
-      insert.run({
+      upsert.run({
         code: type.code,
         labelKo: type.labelKo,
         sortOrder: type.sortOrder

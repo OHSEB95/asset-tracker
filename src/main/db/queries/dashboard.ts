@@ -35,6 +35,11 @@ function rowToTransaction(row: any): Transaction {
   }
 }
 
+function currentYearMonth(): string {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+}
+
 function enumerateMonths(from: string, to: string): string[] {
   const months: string[] = []
   let [y, m] = from.split('-').map(Number)
@@ -81,6 +86,7 @@ export async function getMonthlySummary(filter: DashboardFilter): Promise<Monthl
       yearMonth,
       contribution: 0,
       dividends: 0,
+      projectedDividends: null,
       realizedPnl: 0,
       valuation: 0,
       principal: 0
@@ -137,7 +143,15 @@ export async function getMonthlySummary(filter: DashboardFilter): Promise<Monthl
     db
       .prepare(`SELECT * FROM holdings WHERE account_id IN (${placeholders})`)
       .all(...accountIds) as any[]
-  ).map((row) => ({ id: row.id as number, accountId: row.account_id as number }))
+  ).map((row) => ({
+    id: row.id as number,
+    accountId: row.account_id as number,
+    dividendPerShare: row.dividend_per_share as number | null,
+    dividendCycleType: row.dividend_cycle_type as 'MONTHLY' | 'CUSTOM' | null,
+    dividendMonths: row.dividend_months
+      ? (row.dividend_months as string).split(',').map((m: string) => Number(m))
+      : null
+  }))
 
   const snapshotRows = db
     .prepare(
@@ -216,12 +230,37 @@ export async function getMonthlySummary(filter: DashboardFilter): Promise<Monthl
     principalByMonth.set(month, principalTotal)
   }
 
+  // 3) 예상 배당: 종목별 "현재" 보유수량이 앞으로도 유지된다고 가정하고, 배당주기에 맞는
+  //    미래 달에 (보유수량 × 1주 배당금)을 더한다. 이번 달 이전은 null(계산 안 함).
+  const nowMonth = currentYearMonth()
+  const projectedByMonth = new Map<string, number>()
+  for (const holding of holdings) {
+    if (holding.dividendPerShare == null || !holding.dividendCycleType) continue
+    const snapshot = getHoldingSnapshot(holding.id)
+    if (!snapshot.quantity || snapshot.quantity <= 0) continue
+
+    const acct = accounts.find((a) => a.id === holding.accountId)
+    const fx = acct?.accountTypeCode === 'FOREIGN_STOCK' ? rate : 1
+    const perPayout = snapshot.quantity * holding.dividendPerShare * fx
+
+    for (const month of months) {
+      if (month < nowMonth) continue
+      const monthNum = Number(month.slice(5, 7))
+      const isPayoutMonth =
+        holding.dividendCycleType === 'MONTHLY' ||
+        (holding.dividendCycleType === 'CUSTOM' && (holding.dividendMonths ?? []).includes(monthNum))
+      if (!isPayoutMonth) continue
+      projectedByMonth.set(month, (projectedByMonth.get(month) ?? 0) + perPayout)
+    }
+  }
+
   return months.map((yearMonth) => {
     const flow = flowByMonth.get(yearMonth)
     return {
       yearMonth,
       contribution: flow?.contribution ?? 0,
       dividends: flow?.dividends ?? 0,
+      projectedDividends: yearMonth < nowMonth ? null : (projectedByMonth.get(yearMonth) ?? 0),
       realizedPnl: flow?.realizedPnl ?? 0,
       valuation: valuationByMonth.get(yearMonth) ?? 0,
       principal: principalByMonth.get(yearMonth) ?? 0

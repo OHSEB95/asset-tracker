@@ -55,6 +55,32 @@ const api = {
       ipcRenderer.invoke(IPC.DASHBOARD_GET_MONTHLY_SUMMARY, filter),
     getPortfolioSnapshot: (accountTypeCode?: string | null) =>
       ipcRenderer.invoke(IPC.DASHBOARD_GET_PORTFOLIO_SNAPSHOT, accountTypeCode)
+  },
+  auth: {
+    login: (email: string, password: string, rememberEmail: boolean, autoLogin: boolean) =>
+      ipcRenderer.invoke(IPC.AUTH_LOGIN, email, password, rememberEmail, autoLogin),
+    register: (
+      email: string,
+      password: string,
+      name: string,
+      phoneNumber: string,
+      rememberEmail: boolean,
+      autoLogin: boolean
+    ) => ipcRenderer.invoke(IPC.AUTH_REGISTER, email, password, name, phoneNumber, rememberEmail, autoLogin),
+    logout: () => ipcRenderer.invoke(IPC.AUTH_LOGOUT),
+    getCurrentUser: () => ipcRenderer.invoke(IPC.AUTH_GET_CURRENT_USER),
+    getRememberedEmail: () => ipcRenderer.invoke(IPC.AUTH_GET_REMEMBERED_EMAIL),
+    changePassword: (currentPassword: string, newPassword: string) =>
+      ipcRenderer.invoke(IPC.AUTH_CHANGE_PASSWORD, currentPassword, newPassword),
+    onForceLogout: (callback: () => void) => {
+      const listener = (): void => callback()
+      ipcRenderer.on(IPC.AUTH_FORCE_LOGOUT, listener)
+      return () => ipcRenderer.removeListener(IPC.AUTH_FORCE_LOGOUT, listener)
+    }
+  },
+  sync: {
+    push: () => ipcRenderer.invoke(IPC.SYNC_PUSH),
+    getStatus: () => ipcRenderer.invoke(IPC.SYNC_GET_STATUS)
   }
 }
 

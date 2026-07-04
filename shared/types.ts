@@ -18,7 +18,7 @@ export interface AccountInput {
 
 export type PriceSource = 'coingecko' | 'naver' | 'yahoo'
 
-export type DividendCycleType = 'MONTHLY' | 'ANNUAL' | 'CUSTOM'
+export type DividendCycleType = 'MONTHLY' | 'CUSTOM'
 
 export interface Holding {
   id: number
@@ -106,6 +106,7 @@ export interface MonthlySummaryRow {
   yearMonth: string
   contribution: number
   dividends: number
+  projectedDividends: number | null
   realizedPnl: number
   valuation: number
   principal: number
@@ -146,4 +147,30 @@ export interface PortfolioSnapshot {
   rows: PortfolioRow[]
   totalValue: number
   totalProfit: number
+}
+
+export interface AuthUser {
+  uid: string
+  email: string | null
+  name: string | null
+}
+
+export interface AuthResult {
+  user?: AuthUser
+  error?: string
+}
+
+export interface ChangePasswordResult {
+  ok: boolean
+  error?: string
+}
+
+export interface SyncStatus {
+  lastSyncedAt: string | null
+}
+
+export interface SyncResult {
+  ok: boolean
+  error?: string
+  lastSyncedAt?: string
 }

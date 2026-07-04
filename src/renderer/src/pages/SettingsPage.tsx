@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useState } from 'react'
 import { useAccountsContext } from '../state/AccountsContext'
+import { useAuthContext } from '../state/AuthContext'
 import NumberInput from '../components/NumberInput'
 import type { AccountInput, DividendCycleType, Holding, HoldingInput, PriceSource } from '@shared/types'
 
@@ -17,6 +18,13 @@ function emptyAccountForm(defaultType: string): AccountInput {
 
 function emptyHoldingForm(accountId: number): HoldingInput {
   return { accountId, name: '', priceSymbol: '', priceSource: null }
+}
+
+function formatDividendInfo(h: Holding): string {
+  if (h.dividendPerShare == null || !h.dividendCycleType) return '-'
+  const amount = `${h.dividendPerShare.toLocaleString()}원`
+  const cycle = h.dividendCycleType === 'MONTHLY' ? '월배당' : `${(h.dividendMonths ?? []).join(', ')}월`
+  return `${amount} · ${cycle}`
 }
 
 function MonthPickerPopup({
@@ -196,8 +204,7 @@ function HoldingsPanel({ accountId }: { accountId: number }): React.JSX.Element 
             onChange={(e) => handleCycleTypeChange(e.target.value)}
           >
             <option value="">선택</option>
-            <option value="MONTHLY">1개월</option>
-            <option value="ANNUAL">12개월</option>
+            <option value="MONTHLY">월배당</option>
             <option value="CUSTOM">
               {dividendCycleType === 'CUSTOM' && dividendMonths.length > 0
                 ? `${dividendMonths.join(', ')}월`
@@ -241,6 +248,7 @@ function HoldingsPanel({ accountId }: { accountId: number }): React.JSX.Element 
             <tr>
               <th>이름</th>
               <th>심볼</th>
+              <th>배당정보</th>
               <th></th>
             </tr>
           </thead>
@@ -249,6 +257,7 @@ function HoldingsPanel({ accountId }: { accountId: number }): React.JSX.Element 
               <tr key={h.id}>
                 <td>{h.name}</td>
                 <td>{h.priceSymbol ?? '-'}</td>
+                <td>{formatDividendInfo(h)}</td>
                 <td className="row-actions">
                   <button type="button" onClick={() => startEdit(h)}>
                     수정
@@ -263,6 +272,122 @@ function HoldingsPanel({ accountId }: { accountId: number }): React.JSX.Element 
         </table>
       )}
     </div>
+  )
+}
+
+const MIN_PASSWORD_LENGTH = 8
+
+function PasswordChangeCard(): React.JSX.Element {
+  const { changePassword } = useAuthContext()
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [message, setMessage] = useState<string | null>(null)
+  const [isError, setIsError] = useState(false)
+
+  async function handleSubmit(e: React.FormEvent): Promise<void> {
+    e.preventDefault()
+    if (!currentPassword || !newPassword) return
+    if (newPassword.length < MIN_PASSWORD_LENGTH) {
+      setIsError(true)
+      setMessage(`새 비밀번호는 ${MIN_PASSWORD_LENGTH}자 이상이어야 합니다.`)
+      return
+    }
+    setSubmitting(true)
+    setMessage(null)
+    try {
+      const err = await changePassword(currentPassword, newPassword)
+      if (err) {
+        setIsError(true)
+        setMessage(err)
+      } else {
+        setIsError(false)
+        setMessage('비밀번호가 변경되었습니다.')
+        setCurrentPassword('')
+        setNewPassword('')
+      }
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <section className="card">
+      <h2>비밀번호 변경</h2>
+      <form onSubmit={handleSubmit} className="form-grid">
+        <label>
+          현재 비밀번호
+          <input
+            type="password"
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+          />
+        </label>
+        <label>
+          새 비밀번호
+          <input
+            type="password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            placeholder={`최소 ${MIN_PASSWORD_LENGTH}자`}
+          />
+        </label>
+        <div className="form-actions">
+          <button type="submit" disabled={submitting}>
+            변경
+          </button>
+        </div>
+      </form>
+      {message && <p className={isError ? 'error-text' : 'success-text'}>{message}</p>}
+    </section>
+  )
+}
+
+function SyncCard(): React.JSX.Element {
+  const { user, logout } = useAuthContext()
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null)
+  const [syncing, setSyncing] = useState(false)
+  const [syncMessage, setSyncMessage] = useState<string | null>(null)
+
+  useEffect(() => {
+    window.api.sync.getStatus().then((s) => setLastSyncedAt(s.lastSyncedAt))
+  }, [])
+
+  async function handleSync(): Promise<void> {
+    setSyncing(true)
+    setSyncMessage(null)
+    try {
+      const result = await window.api.sync.push()
+      if (result.error) {
+        setSyncMessage(`동기화 실패: ${result.error}`)
+      } else {
+        setLastSyncedAt(result.lastSyncedAt ?? null)
+        setSyncMessage('동기화가 완료되었습니다.')
+      }
+    } finally {
+      setSyncing(false)
+    }
+  }
+
+  return (
+    <section className="card">
+      <h2>클라우드 동기화</h2>
+      <p className="muted">
+        {user?.email} 계정으로 로그인되어 있습니다. 앱 종료 시에도 자동으로 동기화됩니다.
+      </p>
+      <p className="path-display">
+        마지막 동기화: {lastSyncedAt ? new Date(lastSyncedAt).toLocaleString() : '없음'}
+      </p>
+      <div className="form-actions">
+        <button onClick={handleSync} disabled={syncing}>
+          지금 동기화
+        </button>
+        <button type="button" className="ghost-button" onClick={logout}>
+          로그아웃
+        </button>
+      </div>
+      {syncMessage && <p className={syncMessage.startsWith('동기화 실패') ? 'error-text' : 'success-text'}>{syncMessage}</p>}
+    </section>
   )
 }
 
@@ -327,18 +452,7 @@ function SettingsPage(): React.JSX.Element {
 
   return (
     <div className="page">
-      <section className="card">
-        <h2>데이터 저장 위치</h2>
-        <p className="muted">
-          맥북/데스크탑 두 기기에서 같은 데이터를 보려면 iCloud Drive 또는 OneDrive 안의 폴더를
-          선택하세요.
-        </p>
-        <p className="path-display">{dataDir || '(기본 위치)'}</p>
-        <button onClick={handleChooseFolder} disabled={saving}>
-          폴더 선택/변경
-        </button>
-        {message && <p className="success-text">{message}</p>}
-      </section>
+      <SyncCard />
 
       <section className="card">
         <h2>계좌 {editingId ? '수정' : '추가'}</h2>
@@ -417,6 +531,21 @@ function SettingsPage(): React.JSX.Element {
           </tbody>
         </table>
       </section>
+
+      <section className="card">
+        <h2>데이터 저장 위치</h2>
+        <p className="muted">
+          맥북/데스크탑 두 기기에서 같은 데이터를 보려면 iCloud Drive 또는 OneDrive 안의 폴더를
+          선택하세요.
+        </p>
+        <p className="path-display">{dataDir || '(기본 위치)'}</p>
+        <button onClick={handleChooseFolder} disabled={saving}>
+          폴더 선택/변경
+        </button>
+        {message && <p className="success-text">{message}</p>}
+      </section>
+
+      <PasswordChangeCard />
     </div>
   )
 }

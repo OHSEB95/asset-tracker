@@ -2,10 +2,15 @@ import { useEffect, useState } from 'react'
 import { useAccountsContext } from '../state/AccountsContext'
 import type { MonthlySummaryRow, PortfolioSnapshot } from '@shared/types'
 import PrincipalVsValueChart from '../components/charts/PrincipalVsValueChart'
-import DividendsAndPnlChart from '../components/charts/DividendsAndPnlChart'
+import DividendChart from '../components/charts/DividendChart'
+import SellPnlChart from '../components/charts/SellPnlChart'
 
 function startOfCurrentYear(): string {
   return `${new Date().getFullYear()}-01`
+}
+
+function endOfCurrentYear(): string {
+  return `${new Date().getFullYear()}-12`
 }
 
 function currentYearMonth(): string {
@@ -35,6 +40,7 @@ function DashboardPage({
   const [to, setTo] = useState(currentYearMonth())
   const [accountTypeCode, setAccountTypeCode] = useState<string>('')
   const [rows, setRows] = useState<MonthlySummaryRow[]>([])
+  const [dividendRows, setDividendRows] = useState<MonthlySummaryRow[]>([])
   const [portfolio, setPortfolio] = useState<PortfolioSnapshot | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -53,6 +59,22 @@ function DashboardPage({
       cancelled = true
     }
   }, [from, to, accountTypeCode])
+
+  useEffect(() => {
+    let cancelled = false
+    window.api.dashboard
+      .getMonthlySummary({
+        from: startOfCurrentYear(),
+        to: endOfCurrentYear(),
+        accountTypeCode: accountTypeCode || null
+      })
+      .then((data) => {
+        if (!cancelled) setDividendRows(data)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [accountTypeCode])
 
   useEffect(() => {
     let cancelled = false
@@ -129,14 +151,22 @@ function DashboardPage({
       )}
 
       <div className="dashboard-lower">
-        <section className="card chart-card">
-          <h3>월별 배당 · 매도손익</h3>
-          <div className="chart-body">
-            {rows.length > 0 ? (
-              <DividendsAndPnlChart data={rows} />
-            ) : (
-              <p className="muted">데이터가 없습니다.</p>
-            )}
+        <section className="card chart-card split-chart-card">
+          <div className="split-chart-half">
+            <h3>월별 배당 · 예상 배당 ({new Date().getFullYear()}년)</h3>
+            <div className="chart-body">
+              {dividendRows.length > 0 ? (
+                <DividendChart data={dividendRows} />
+              ) : (
+                <p className="muted">데이터가 없습니다.</p>
+              )}
+            </div>
+          </div>
+          <div className="split-chart-half">
+            <h3>매도손익</h3>
+            <div className="chart-body">
+              {rows.length > 0 ? <SellPnlChart data={rows} /> : <p className="muted">데이터가 없습니다.</p>}
+            </div>
           </div>
         </section>
 

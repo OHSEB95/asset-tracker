@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { AccountsProvider } from './state/AccountsContext'
 import { ExchangeRateProvider, useExchangeRateContext } from './state/ExchangeRateContext'
+import { AuthProvider, useAuthContext } from './state/AuthContext'
 import SettingsPage from './pages/SettingsPage'
 import TransactionEntryPage from './pages/TransactionEntryPage'
 import DashboardPage from './pages/DashboardPage'
 import HoldingsPage from './pages/HoldingsPage'
+import LoginPage from './pages/LoginPage'
 
 type Tab = 'dashboard' | 'entry' | 'holdings' | 'settings'
 
@@ -31,8 +33,12 @@ function ExchangeRateBadge(): React.JSX.Element {
   )
 }
 
-function App(): React.JSX.Element {
+function AppShell(): React.JSX.Element {
+  const { user, loading } = useAuthContext()
   const [tab, setTab] = useState<Tab>('dashboard')
+
+  if (loading) return <div className="page">로딩 중…</div>
+  if (!user) return <LoginPage />
 
   return (
     <ExchangeRateProvider>
@@ -49,6 +55,11 @@ function App(): React.JSX.Element {
               </button>
             ))}
             <ExchangeRateBadge />
+            {user.name && (
+              <div className="user-badge">
+                <span className="user-badge-name">{user.name}</span>님
+              </div>
+            )}
           </nav>
           <main className="tab-content">
             {tab === 'dashboard' && <DashboardPage onNavigateToHoldings={() => setTab('holdings')} />}
@@ -59,6 +70,14 @@ function App(): React.JSX.Element {
         </div>
       </AccountsProvider>
     </ExchangeRateProvider>
+  )
+}
+
+function App(): React.JSX.Element {
+  return (
+    <AuthProvider>
+      <AppShell />
+    </AuthProvider>
   )
 }
 

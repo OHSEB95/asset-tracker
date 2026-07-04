@@ -3,6 +3,9 @@ import type {
   AccountInput,
   AccountType,
   AppSettings,
+  AuthResult,
+  AuthUser,
+  ChangePasswordResult,
   DashboardFilter,
   ExchangeRateInfo,
   Holding,
@@ -13,6 +16,8 @@ import type {
   PriceFetchError,
   PriceFetchResult,
   PriceSnapshotInput,
+  SyncResult,
+  SyncStatus,
   Transaction,
   TransactionInput,
   TransactionListFilter
@@ -57,6 +62,26 @@ export interface Api {
   dashboard: {
     getMonthlySummary(filter: DashboardFilter): Promise<MonthlySummaryRow[]>
     getPortfolioSnapshot(accountTypeCode?: string | null): Promise<PortfolioSnapshot>
+  }
+  auth: {
+    login(email: string, password: string, rememberEmail: boolean, autoLogin: boolean): Promise<AuthResult>
+    register(
+      email: string,
+      password: string,
+      name: string,
+      phoneNumber: string,
+      rememberEmail: boolean,
+      autoLogin: boolean
+    ): Promise<AuthResult>
+    logout(): Promise<{ ok: true }>
+    getCurrentUser(): Promise<AuthUser | null>
+    getRememberedEmail(): Promise<string | null>
+    changePassword(currentPassword: string, newPassword: string): Promise<ChangePasswordResult>
+    onForceLogout(callback: () => void): () => void
+  }
+  sync: {
+    push(): Promise<SyncResult>
+    getStatus(): Promise<SyncStatus>
   }
 }
 

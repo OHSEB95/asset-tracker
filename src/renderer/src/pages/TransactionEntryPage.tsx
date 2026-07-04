@@ -384,12 +384,27 @@ function TransactionEntryPage(): React.JSX.Element {
                   value={holdingId ?? ''}
                   onChange={(e) => setHoldingId(e.target.value ? Number(e.target.value) : null)}
                 >
-                  <option value="">선택</option>
-                  {accountHoldings.map((h) => (
-                    <option key={h.id} value={h.id}>
-                      {h.name}
-                    </option>
-                  ))}
+                  {accountHoldings.length > 0 ? (
+                    <>
+                      <option value="">선택</option>
+                      {accountHoldings.map((h) => (
+                        <option key={h.id} value={h.id}>
+                          {h.name}
+                        </option>
+                      ))}
+                    </>
+                  ) : (
+                    <option value="">{selectedAccount?.name}</option>
+                  )}
+                </select>
+              </label>
+            )}
+
+            {isCashShapedStock && !(type === 'DIVIDEND' && accountHoldings.length > 0) && (
+              <label className="field-holding">
+                종목
+                <select value="" disabled>
+                  <option value="">예수금</option>
                 </select>
               </label>
             )}
