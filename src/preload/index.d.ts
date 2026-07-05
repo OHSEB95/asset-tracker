@@ -43,6 +43,7 @@ export interface Api {
   transactions: {
     list(filter: TransactionListFilter): Promise<Transaction[]>
     create(input: TransactionInput): Promise<{ data: Transaction } | { error: string }>
+    update(id: number, input: TransactionInput): Promise<{ data: Transaction } | { error: string }>
     delete(id: number): Promise<{ ok: true } | { error: string }>
   }
   prices: {

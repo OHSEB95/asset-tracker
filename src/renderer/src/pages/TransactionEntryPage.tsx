@@ -61,6 +61,7 @@ function TransactionEntryPage(): React.JSX.Element {
 
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [editingTxId, setEditingTxId] = useState<number | null>(null)
 
   const isAllSelected = assetTypeCode === ''
   const matchingAccounts = accounts.filter((a) => a.accountTypeCode === assetTypeCode)
@@ -71,10 +72,6 @@ function TransactionEntryPage(): React.JSX.Element {
   const isForeignAccount = selectedAccount?.accountTypeCode === 'FOREIGN_STOCK'
   const isSavingsAccount = selectedAccount?.accountTypeCode === 'YOUTH_SAVINGS'
   const accountHoldings = holdings.filter((h) => h.accountId === resolvedAccountId && !h.isArchived)
-
-  useEffect(() => {
-    setSecondaryAccountId(null)
-  }, [assetTypeCode])
 
   useEffect(() => {
     setInputInKrw(false)
@@ -153,6 +150,15 @@ function TransactionEntryPage(): React.JSX.Element {
     return acct?.accountTypeCode === 'FOREIGN_STOCK' ? 'USD' : 'KRW'
   }
 
+  // holdingId가 없는 거래(세부 종목 미등록 상태의 입출금/정리)는 대시보드 총 자산 목록과
+  // 동일하게 예수금(일반 계좌) 또는 계좌명(안전자산)으로 표시해 무엇에 대한 내역인지 알 수 있게 한다.
+  function productLabelForTx(t: Transaction): string {
+    if (t.holdingId != null) return holdings.find((h) => h.id === t.holdingId)?.name ?? '-'
+    const acct = accounts.find((a) => a.id === t.accountId)
+    if (!acct) return '-'
+    return acct.accountTypeCode === 'YOUTH_SAVINGS' ? acct.name : '예수금'
+  }
+
   function displayMoneyForTx(t: Transaction, value: number | null): string {
     if (value == null) return '-'
     if (!isAllSelected) return displayMoney(value)
@@ -167,6 +173,31 @@ function TransactionEntryPage(): React.JSX.Element {
     setHoldingId(null)
     setAdjustTarget('holding')
     setFormError(null)
+    setEditingTxId(null)
+  }
+
+  function startEdit(t: Transaction): void {
+    const acct = accounts.find((a) => a.id === t.accountId)
+    if (!acct) return
+    setEditingTxId(t.id)
+    setAssetTypeCode(acct.accountTypeCode)
+    setSecondaryAccountId(t.accountId)
+    setDate(t.date)
+    setType(t.type)
+    setHoldingId(t.holdingId)
+    setQuantity(t.quantity != null ? String(t.quantity) : '')
+    setPrice(t.price != null ? String(t.price) : '')
+    setAmount(t.amount != null ? String(t.amount) : '')
+    setNote(t.note ?? '')
+    setAdjustTarget(t.type === 'ADJUST' && !t.holdingId ? 'cash' : 'holding')
+    setFormError(null)
+  }
+
+  function cancelEdit(): void {
+    setEditingTxId(null)
+    setDate(todayDate())
+    setType('DEPOSIT')
+    resetForm()
   }
 
   async function reloadTransactions(): Promise<void> {
@@ -218,7 +249,10 @@ function TransactionEntryPage(): React.JSX.Element {
     }
 
     try {
-      const result = await window.api.transactions.create(input)
+      const result =
+        editingTxId != null
+          ? await window.api.transactions.update(editingTxId, input)
+          : await window.api.transactions.create(input)
       if ('error' in result) {
         setFormError(result.error)
         return
@@ -315,7 +349,14 @@ function TransactionEntryPage(): React.JSX.Element {
         <div className="tx-form asset-type-row">
           <label className="field-type">
             자산유형
-            <select value={assetTypeCode} onChange={(e) => setAssetTypeCode(e.target.value)}>
+            <select
+              value={assetTypeCode}
+              disabled={editingTxId != null}
+              onChange={(e) => {
+                setAssetTypeCode(e.target.value)
+                setSecondaryAccountId(null)
+              }}
+            >
               <option value="">전체</option>
               {accountTypes.map((t) => (
                 <option key={t.code} value={t.code}>
@@ -329,6 +370,7 @@ function TransactionEntryPage(): React.JSX.Element {
               계좌명
               <select
                 value={secondaryAccountId ?? ''}
+                disabled={editingTxId != null}
                 onChange={(e) => setSecondaryAccountId(e.target.value ? Number(e.target.value) : null)}
               >
                 <option value="">선택</option>
@@ -481,8 +523,13 @@ function TransactionEntryPage(): React.JSX.Element {
 
             <div className="form-actions field-actions">
               <button type="submit" disabled={!canSubmit}>
-                {saving ? '저장 중…' : '거래 저장'}
+                {saving ? '저장 중…' : editingTxId != null ? '수정 저장' : '거래 저장'}
               </button>
+              {editingTxId != null && (
+                <button type="button" onClick={cancelEdit}>
+                  취소
+                </button>
+              )}
             </div>
 
             {renderHint()}
@@ -503,7 +550,7 @@ function TransactionEntryPage(): React.JSX.Element {
                 <tr>
                   <th>날짜</th>
                   <th>유형</th>
-                  <th>{productLabel}</th>
+                  <th className="col-divider-left">{productLabel}</th>
                   {!hideStockColumns && <th>수량</th>}
                   {!hideStockColumns && <th>단가</th>}
                   <th>금액</th>
@@ -517,7 +564,7 @@ function TransactionEntryPage(): React.JSX.Element {
                   <tr key={t.id}>
                     <td>{t.date}</td>
                     <td>{TYPE_LABEL[t.type]}</td>
-                    <td>{holdings.find((h) => h.id === t.holdingId)?.name ?? '-'}</td>
+                    <td className="col-divider-left">{productLabelForTx(t)}</td>
                     {!hideStockColumns && (
                       <td>{t.quantity != null ? t.quantity.toLocaleString() : '-'}</td>
                     )}
@@ -535,7 +582,10 @@ function TransactionEntryPage(): React.JSX.Element {
                       <td>{t.realizedPnl != null ? displayMoneyForTx(t, t.realizedPnl) : '-'}</td>
                     )}
                     <td>{t.note ?? '-'}</td>
-                    <td>
+                    <td className="row-actions">
+                      <button type="button" onClick={() => startEdit(t)}>
+                        수정
+                      </button>
                       <button type="button" onClick={() => handleDelete(t.id)}>
                         삭제
                       </button>

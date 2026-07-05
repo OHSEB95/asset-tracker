@@ -34,6 +34,8 @@ const api = {
   transactions: {
     list: (filter: TransactionListFilter) => ipcRenderer.invoke(IPC.TRANSACTIONS_LIST, filter),
     create: (input: TransactionInput) => ipcRenderer.invoke(IPC.TRANSACTIONS_CREATE, input),
+    update: (id: number, input: TransactionInput) =>
+      ipcRenderer.invoke(IPC.TRANSACTIONS_UPDATE, id, input),
     delete: (id: number) => ipcRenderer.invoke(IPC.TRANSACTIONS_DELETE, id)
   },
   prices: {

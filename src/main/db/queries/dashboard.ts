@@ -364,6 +364,21 @@ export async function getPortfolioSnapshot(accountTypeCode?: string | null): Pro
         profit: null,
         weightPercent: 0
       })
+    } else if (cashBalance !== 0) {
+      // 특정 상품(holding)에 연결되지 않은 입금/출금 (세부 종목 미등록 상태로 거래한 경우)
+      rows.push({
+        kind: 'cash',
+        accountId: acct.id,
+        accountTypeLabel: acct.label_ko,
+        label: hasHoldingRows ? `${acct.name} (미분류)` : acct.name,
+        quantity: null,
+        avgCost: null,
+        currentPrice: null,
+        currency,
+        value: cashBalance * fx,
+        profit: null,
+        weightPercent: 0
+      })
     }
   }
 

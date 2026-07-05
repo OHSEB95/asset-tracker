@@ -85,7 +85,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  max-width: 1000px;
+  max-width: 1400px;
   margin: 0 auto;
 }
 
@@ -329,8 +329,13 @@ button:disabled {
   flex-direction: column;
   height: 100%;
   gap: 16px;
-  max-width: 1000px;
+  max-width: 1400px;
   margin: 0 auto;
+}
+
+.col-divider-left {
+  border-left: 1px solid var(--border);
+  padding-left: 14px;
 }
 
 .tx-history-card {

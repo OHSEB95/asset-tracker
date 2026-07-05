@@ -13,6 +13,7 @@ export const IPC = {
 
   TRANSACTIONS_LIST: 'transactions:list',
   TRANSACTIONS_CREATE: 'transactions:create',
+  TRANSACTIONS_UPDATE: 'transactions:update',
   TRANSACTIONS_DELETE: 'transactions:delete',
 
   PRICES_FETCH: 'prices:fetch',

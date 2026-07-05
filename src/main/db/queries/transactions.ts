@@ -47,22 +47,37 @@ export function listTransactions(filter: TransactionListFilter): Transaction[] {
   return rows.map(rowToTransaction)
 }
 
-/** BUY/SELL/ADJUST transactions for a holding, up to and including a given date, ordered for replay. */
-function getHoldingTransactionsUpTo(holdingId: number, date: string): Transaction[] {
+/**
+ * BUY/SELL/ADJUST transactions for a holding, up to and including a given date, ordered for replay.
+ * excludeId가 주어지면 그 거래는 리플레이에서 제외한다 (수정 중인 거래 자기 자신을 빼고 계산할 때 사용).
+ */
+function getHoldingTransactionsUpTo(holdingId: number, date: string, excludeId?: number): Transaction[] {
   const db = getDatabase()
   const rows = db
     .prepare(
       `SELECT * FROM transactions
        WHERE holding_id = @holdingId AND type IN ('BUY','SELL','ADJUST') AND date <= @date
+         AND (@excludeId IS NULL OR id != @excludeId)
        ORDER BY date ASC, id ASC`
     )
-    .all({ holdingId, date })
+    .all({ holdingId, date, excludeId: excludeId ?? null })
   return rows.map(rowToTransaction)
 }
 
-export function createTransaction(input: TransactionInput): Transaction {
-  const db = getDatabase()
+interface TransactionRow {
+  accountId: number
+  holdingId: number | null
+  type: TransactionInput['type']
+  date: string
+  quantity: number | null
+  price: number | null
+  amount: number | null
+  realizedPnl: number | null
+  note: string | null
+}
 
+/** type별 필수값 검증 + SELL의 realizedPnl 계산. excludeId는 수정 시 자기 자신을 리플레이에서 빼기 위함. */
+function computeTransactionRow(input: TransactionInput, excludeId?: number): TransactionRow {
   const isHoldingAdjust = input.type === 'ADJUST' && !!input.holdingId
   const isCashAdjust = input.type === 'ADJUST' && !input.holdingId
   const isSavingsHoldingTx =
@@ -85,7 +100,7 @@ export function createTransaction(input: TransactionInput): Transaction {
   let realizedPnl: number | null = null
 
   if (input.type === 'SELL') {
-    const priorTx = getHoldingTransactionsUpTo(input.holdingId!, input.date)
+    const priorTx = getHoldingTransactionsUpTo(input.holdingId!, input.date, excludeId)
     const state = replayHoldingState(priorTx)
     if (input.quantity! > state.quantity) {
       throw new Error(
@@ -107,26 +122,82 @@ export function createTransaction(input: TransactionInput): Transaction {
     throw new Error('금액을 올바르게 입력해주세요.')
   }
 
+  return {
+    accountId: input.accountId,
+    holdingId: isCashAdjust ? null : (input.holdingId ?? null),
+    type: input.type,
+    date: input.date,
+    quantity: isCashType ? null : (input.quantity ?? null),
+    price: isCashType ? null : (input.price ?? null),
+    amount: isCashType ? input.amount! : null,
+    realizedPnl,
+    note: input.note ?? null
+  }
+}
+
+export function createTransaction(input: TransactionInput): Transaction {
+  const db = getDatabase()
+  const row = computeTransactionRow(input)
+
   const result = db
     .prepare(
       `INSERT INTO transactions
          (account_id, holding_id, type, date, quantity, price, amount, realized_pnl, note)
        VALUES (@accountId, @holdingId, @type, @date, @quantity, @price, @amount, @realizedPnl, @note)`
     )
-    .run({
-      accountId: input.accountId,
-      holdingId: isCashAdjust ? null : (input.holdingId ?? null),
-      type: input.type,
-      date: input.date,
-      quantity: isCashType ? null : (input.quantity ?? null),
-      price: isCashType ? null : (input.price ?? null),
-      amount: isCashType ? input.amount : null,
-      realizedPnl,
-      note: input.note ?? null
-    })
+    .run(row)
 
-  const row = db.prepare(`SELECT * FROM transactions WHERE id = ?`).get(result.lastInsertRowid)
-  return rowToTransaction(row)
+  const created = db.prepare(`SELECT * FROM transactions WHERE id = ?`).get(result.lastInsertRowid)
+  return rowToTransaction(created)
+}
+
+/** BUY/ADJUST(보유종목 반영) 거래 이후 그 종목의 SELL이 있으면 수정을 막는다 (delete와 동일한 정합성 가드). */
+function assertNoLaterSell(holdingId: number, date: string, id: number, action: '삭제' | '수정'): void {
+  const db = getDatabase()
+  const laterSell = db
+    .prepare(
+      `SELECT COUNT(*) as cnt FROM transactions
+       WHERE holding_id = @holdingId AND type = 'SELL'
+         AND (date > @date OR (date = @date AND id > @id))`
+    )
+    .get({ holdingId, date, id }) as { cnt: number }
+
+  if (laterSell.cnt > 0) {
+    throw new Error(
+      `이 거래 이후 매도 거래가 있어 ${action}할 수 없습니다. 먼저 관련 매도 거래를 삭제해주세요.`
+    )
+  }
+}
+
+export function updateTransaction(id: number, input: TransactionInput): Transaction {
+  const db = getDatabase()
+  const existing = db.prepare(`SELECT * FROM transactions WHERE id = ?`).get(id) as any
+  if (!existing) {
+    throw new Error('거래를 찾을 수 없습니다.')
+  }
+
+  if ((existing.type === 'BUY' || existing.type === 'ADJUST') && existing.holding_id) {
+    assertNoLaterSell(existing.holding_id, existing.date, existing.id, '수정')
+  }
+
+  const row = computeTransactionRow(input, id)
+
+  db.prepare(
+    `UPDATE transactions SET
+       account_id = @accountId,
+       holding_id = @holdingId,
+       type = @type,
+       date = @date,
+       quantity = @quantity,
+       price = @price,
+       amount = @amount,
+       realized_pnl = @realizedPnl,
+       note = @note
+     WHERE id = @id`
+  ).run({ ...row, id })
+
+  const updated = db.prepare(`SELECT * FROM transactions WHERE id = ?`).get(id)
+  return rowToTransaction(updated)
 }
 
 export function deleteTransaction(id: number): void {
@@ -135,17 +206,7 @@ export function deleteTransaction(id: number): void {
   if (!row) return
 
   if ((row.type === 'BUY' || row.type === 'ADJUST') && row.holding_id) {
-    const laterSell = db
-      .prepare(
-        `SELECT COUNT(*) as cnt FROM transactions
-         WHERE holding_id = @holdingId AND type = 'SELL'
-           AND (date > @date OR (date = @date AND id > @id))`
-      )
-      .get({ holdingId: row.holding_id, date: row.date, id: row.id }) as { cnt: number }
-
-    if (laterSell.cnt > 0) {
-      throw new Error('이 거래 이후 매도 거래가 있어 삭제할 수 없습니다. 먼저 관련 매도 거래를 삭제해주세요.')
-    }
+    assertNoLaterSell(row.holding_id, row.date, row.id, '삭제')
   }
 
   db.prepare(`DELETE FROM transactions WHERE id = ?`).run(id)
