@@ -15,6 +15,7 @@ import { registerSettingsIpc } from './ipc/settings'
 import { registerDashboardIpc } from './ipc/dashboard'
 import { registerAuthIpc } from './ipc/auth'
 import { registerSyncIpc } from './ipc/sync'
+import { initAutoUpdater } from './services/updater'
 
 const SESSION_CHECK_INTERVAL_MS = 5 * 60 * 1000
 
@@ -107,6 +108,7 @@ app.whenReady().then(async () => {
   startSessionCheckTimer()
 
   createWindow()
+  initAutoUpdater()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

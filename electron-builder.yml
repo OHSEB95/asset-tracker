@@ -5,6 +5,10 @@ directories:
 files:
   - out/**/*
 afterSign: scripts/afterSign.js
+publish:
+  provider: github
+  owner: OHSEB95
+  repo: asset-tracker
 mac:
   target: dmg
   category: public.app-category.finance
@@ -16,3 +20,4 @@ win:
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
+  artifactName: ${productName}-Setup-${version}.${ext}
