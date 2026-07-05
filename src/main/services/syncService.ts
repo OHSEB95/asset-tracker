@@ -81,6 +81,9 @@ export async function pullFromFirestore(): Promise<void> {
   const db = getDatabase()
   const replaceAll = db.transaction(() => {
     db.prepare('DELETE FROM transactions').run()
+    // price_snapshots는 Firestore에 동기화되지 않는 로컬 전용 데이터라 여기서 복원할 수 없음 —
+    // holdings를 지우기 전에 먼저 비워야 FK 제약(holding_id REFERENCES holdings(id))에 안 걸림.
+    db.prepare('DELETE FROM price_snapshots').run()
     db.prepare('DELETE FROM holdings').run()
     db.prepare('DELETE FROM accounts').run()
 
