@@ -1,13 +1,16 @@
 # Asset Tracker
 
-개인 자산 관리 데스크탑 앱. 비트코인/국내주식/해외주식/IRP/ISA/연금저축펀드/청년도약계좌 등
-여러 계좌의 거래내역(입금/출금/매수/매도/정리/배당)을 기록하면, 보유수량·평단가·예수금을
-자동 계산하고 대시보드에서 월별 원금 대비 자산 증가, 배당, 매도손익, 전체 자산 목록을 보여준다.
+개인 자산 관리 데스크탑 앱. 비트코인/국내주식/해외주식/IRP/ISA/연금저축펀드/안전자산(청년도약계좌,
+노란우산공제 등 예적금성 상품) 등 여러 계좌의 거래내역(입금/출금/매수/매도/정리/배당/해지)을
+기록하면, 보유수량·평단가·예수금을 자동 계산하고 대시보드에서 월별 원금 대비 자산 증가, 배당,
+매도손익, 전체 자산 목록을 보여준다. Firebase 계정으로 로그인해야 사용 가능하며, 종료 시 자동으로
+클라우드에 백업된다.
 
 ## 기술 스택
 
 Electron + React + TypeScript + Vite(electron-vite) + better-sqlite3(SQLite) + Recharts.
-빌드는 electron-builder(Mac: dmg, Windows: nsis).
+인증/클라우드 동기화는 Firebase Auth + Firestore를 SDK 없이 REST API로 직접 호출(`src/main/services/firebase/`).
+자동 업데이트는 `electron-updater` + GitHub Releases. 빌드는 electron-builder(Mac: dmg, Windows: nsis).
 
 ## 자주 쓰는 명령어
 
@@ -17,46 +20,94 @@ npx tsc --noEmit -p tsconfig.node.json   # main/preload 타입체크
 npx tsc --noEmit -p tsconfig.web.json    # renderer 타입체크
 npm run build:mac    # Mac용 dmg 빌드 (identity: null, afterSign.js가 자동 애드혹 서명)
 npm run build:win    # Windows에서만 실행할 것 (better-sqlite3 네이티브 모듈 때문에 Mac에서 크로스 빌드 불가)
+npm run release:win  # Windows용 빌드 + GitHub Releases에 --publish always로 배포 (자동 업데이트 배포용)
 ```
+
+**환경변수 필요**: 실행/빌드 전에 프로젝트 루트에 `.env` 파일이 있어야 함(`.env.example` 참고,
+git에는 올라가지 않음). Firebase 콘솔 > 프로젝트 설정 > 일반에서 확인 가능:
+```
+MAIN_VITE_FIREBASE_API_KEY=...
+MAIN_VITE_FIREBASE_PROJECT_ID=...
+```
+electron-vite가 빌드 시점에 이 값을 `import.meta.env`로 코드에 박아 넣으므로, 패키지된 앱 자체엔
+`.env` 파일이 필요 없음(빌드할 때만 있으면 됨). 이 값이 없으면 `getFirebaseConfig()`가 throw하고
+로그인/회원가입/동기화가 전부 실패함(단, 앱 자체는 로그인 화면까지는 뜸).
 
 ## 아키텍처
 
-- `src/main/` — Electron 메인 프로세스. `db/` (better-sqlite3 스키마·쿼리), `ipc/` (도메인별 1파일,
-  `registerXIpc()` 패턴), `services/priceService.ts` (시세/환율 조회, 절대 throw 안 함).
+- `src/main/` — Electron 메인 프로세스.
+  - `db/` — better-sqlite3 스키마(`schema.ts`)·쿼리(`queries/`)·**버전 기반 마이그레이션 러너**(`migrations.ts`, 아래 참고).
+  - `ipc/` — 도메인별 1파일, `registerXIpc()` 패턴 (`accounts`/`holdings`/`transactions`/`prices`/`rates`/`settings`/`dashboard`/`auth`/`sync`).
+  - `services/priceService.ts` — 시세/환율 조회, 절대 throw 안 함.
+  - `services/authSession.ts` — 로그인/회원가입/세션 갱신/멀티기기 강제 로그아웃 감지(5분 간격 폴링).
+  - `services/authStore.ts` — 자동 로그인 세션은 `safeStorage`로 암호화해 로컬 저장, 이메일 저장은 평문(민감정보 아님).
+  - `services/firebase/` — `authApi.ts`(Firebase Auth REST), `firestoreApi.ts`(Firestore REST), `config.ts`(env 읽기).
+  - `services/syncService.ts` — `pushToFirestore()`/`pullFromFirestore()`(아래 "클라우드 동기화" 참고).
+  - `services/updater.ts` — `electron-updater` 초기화, 패키지 빌드에서만 동작(`app.isPackaged` 체크).
 - `src/preload/` — `contextBridge`로 `window.api.*`만 노출(`nodeIntegration:false`,
   `contextIsolation:true`). renderer는 better-sqlite3/fs에 절대 직접 접근하지 않음.
-- `src/renderer/` — React. `state/AccountsContext.tsx`, `state/ExchangeRateContext.tsx`가
-  "마운트 시 fetch, context로 공유" 패턴. 페이지는 `pages/`, 차트는
-  `components/charts/`(Recharts).
+- `src/renderer/` — React. `state/AccountsContext.tsx`, `state/ExchangeRateContext.tsx`,
+  `state/AuthContext.tsx`가 "마운트 시 fetch, context로 공유" 패턴. `App.tsx`는 로그인 안 되어
+  있으면 무조건 `LoginPage`만 렌더링(로그인 게이트). 페이지는 `pages/`, 차트는 `components/charts/`(Recharts).
 - `shared/` — `types.ts`(도메인 타입), `ipcChannels.ts`(채널명 상수, main/preload 공용).
 
 ## 데이터 모델 (핵심 설계 결정)
 
-- **계좌(accounts) → 보유종목(holdings) → 거래내역(transactions)** 3단 구조. 예전엔
-  "월별 요약 한 줄" 방식이었으나 실제 사용자가 여러 종목을 보유한 계좌(연금저축펀드 등)를
-  못 표현해서 폐기하고 이 구조로 전면 교체함.
-- **모든 파생 상태는 저장하지 않고 항상 재계산**(`src/main/db/queries/replay.ts`의
-  `replayHoldingState`/`cashImpact`). 보유수량/평단가/예수금 전부 거래내역을 날짜순
-  리플레이해서 계산 — 과거 거래를 수정/삭제해도 항상 정합성 유지됨.
-- **거래유형**: `DEPOSIT`/`WITHDRAWAL`/`BUY`/`SELL`/`ADJUST`/`DIVIDEND`.
-  `ADJUST`("정리")는 BUY와 동일하게 수량/평단가에 반영되지만 예수금은 건드리지 않음
-  (이미 보유 중이던 종목을 앱에 등록할 때 씀).
+- **계좌(accounts) → 보유종목/상품(holdings) → 거래내역(transactions)** 3단 구조.
+- **모든 파생 상태는 저장하지 않고 항상 재계산**(`src/main/db/queries/replay.ts`).
+  - `replayHoldingState`/`cashImpact`: 주식형 보유종목의 수량/평단가, 계좌 예수금.
+  - `replayCashHoldingState`: **안전자산(YOUTH_SAVINGS)** 상품의 잔액(수량·단가 개념이 없는
+    예적금성 상품). DEPOSIT/WITHDRAWAL/ADJUST/CLOSE 중 해당 상품(holding_id)에 연결된 거래만
+    합산해서 잔액을 구함.
+  - 과거 거래를 수정/삭제해도 항상 정합성 유지됨.
+- **거래유형**: `DEPOSIT`/`WITHDRAWAL`/`BUY`/`SELL`/`ADJUST`/`DIVIDEND`/`CLOSE`.
+  - `ADJUST`("정리")는 수량/평단가(또는 안전자산 잔액)에 반영되지만 예수금은 건드리지 않음
+    (이미 보유 중이던 종목/상품을 앱에 등록할 때 씀). `holding_id`가 있으면 항상 예수금 영향 0
+    — 이 규칙은 `DEPOSIT`/`WITHDRAWAL`에도 동일하게 적용됨(안전자산 상품에 직접 연결된 입출금은
+    계좌 예수금이 아니라 그 상품 잔액만 움직임).
+  - `CLOSE`("해지")는 안전자산 전용 — 상품 잔액 전액을 자동으로 출금 처리(UI에서 별도 금액 입력 없음).
+  - 거래는 생성 후 **수정(update) 가능**(`updateTransaction`) — 단, BUY/ADJUST 이후 같은
+    종목에 SELL이 있으면 수정/삭제 둘 다 막힘(`assertNoLaterSell`).
 - **해외주식(FOREIGN_STOCK) 계좌는 무조건 달러(USD) 기준으로 저장**. 통화는 계좌 테이블에
-  별도 컬럼 없이 `account_type_code === 'FOREIGN_STOCK'`로 매번 추론함(스키마 단순화 목적).
-  거래입력 화면엔 USD⇄KRW 환산 입력/표시 토글이 있음(`inputInKrw` state) — 저장되는 값은
-  항상 USD, 토글은 표시/입력 변환만 담당.
-- **대시보드는 항상 원화로 통일해서 보여줌** — 해외주식 계좌 금액은
-  `getUsdKrwRate()`(60초 캐시, 실패해도 절대 throw 안 하고 마지막 성공값 또는 고정폴백 1400
-  반환)로 실시간 환율을 곱해 합산. 단, "총 자산 목록"의 평단가/현재가 컬럼은 원래 통화(달러)
-  그대로 보여주고, 가치·손익처럼 합산되는 금액만 원화로 환산(사용자가 쓰던 엑셀 포트폴리오
-  표기 방식을 그대로 따름).
-- **스키마에 마이그레이션 러너가 없음** — `CREATE TABLE IF NOT EXISTS`만 씀. 기존 테이블의
-  컬럼/CHECK 제약을 바꾸는 스키마 변경(예: ADJUST 타입 추가)은 로컬 DB에 자동 반영되지
-  않으므로, 개발 중엔 해당 테이블을 수동으로 DROP 후 재생성하거나 데이터를 보존해야 하면
-  직접 마이그레이션 스크립트를 짜야 함.
+  별도 컬럼 없이 `account_type_code === 'FOREIGN_STOCK'`로 매번 추론함. 거래입력 화면엔
+  USD⇄KRW 환산 입력/표시 토글이 있음(`inputInKrw` state) — 저장되는 값은 항상 USD.
+- **보유종목의 배당 정보**: `dividend_per_share`(1주 배당금, 없으면 무배당), `dividend_cycle_type`
+  (`MONTHLY`/`ANNUAL`/`CUSTOM`), `dividend_months`(CUSTOM일 때만, 콤마구분 월 목록 "1,2,4").
+  대시보드의 "월별 배당·예상 배당" 차트가 이 정보로 미래 배당을 예측해서 보여줌.
+- **대시보드는 항상 원화로 통일해서 보여줌** — 해외주식 계좌 금액은 `getUsdKrwRate()`(60초 캐시,
+  실패해도 절대 throw 안 하고 마지막 성공값 또는 고정폴백 1400 반환)로 실시간 환율을 곱해 합산.
+  단, "총 자산 목록"의 평단가/현재가 컬럼은 원래 통화 그대로, 가치·손익만 원화로 환산.
+- **거래내역 화면**은 계좌 단위가 아니라 "자산유형"(계좌유형) 단위로 선택하게 되어 있고 "전체"
+  옵션으로 모든 계좌의 거래를 한 번에 볼 수 있음. `listTransactions(filter)`가 `accountId` 또는
+  `accountTypeCode` 또는 둘 다 없음(전체)을 모두 처리.
+- **스키마 마이그레이션 러너 있음**(`src/main/db/migrations.ts`) — `app_settings` 테이블에
+  `schema_version`을 기록해두고, `openDatabase()`가 새 DB면 최신 버전으로 바로 마킹, 기존 DB면
+  버전 배열(`MIGRATIONS`)에서 현재 버전보다 높은 마이그레이션만 순서대로 실행함. **CHECK 제약이나
+  컬럼 조합이 바뀌는 스키마 변경은 반드시 여기 새 버전을 추가할 것** — `schema.ts`의
+  `SCHEMA_SQL`만 고치면 신규 설치에만 반영되고 기존 사용자 DB에는 반영 안 됨. `account_types`
+  테이블은 예외적으로 매번 `ON CONFLICT DO UPDATE`로 코드 정의값을 덮어씀(사용자 데이터가 아니라
+  참조용 목록이라 안전).
 - **journal_mode는 WAL이 아니라 기본(DELETE)** — 데이터 파일이 iCloud Drive/OneDrive 같은
   클라우드 동기화 폴더에 놓일 수 있어서, WAL의 `-wal`/`-shm` 사이드카 파일이 따로 동기화되며
   깨질 위험을 피하기 위함. 앱 종료 시 DB 커넥션을 확실히 close.
+
+## 인증 / 클라우드 동기화
+
+- 앱 시작 시 로그인 안 되어 있으면 `LoginPage`만 보임(대시보드 등 전부 접근 불가). Firebase
+  Auth(REST API)로 이메일/비밀번호 로그인·회원가입.
+- **로그인 시**: `pullFromFirestore()` 실행 — Firestore에 저장된 원격 데이터가 있으면 로컬
+  accounts/holdings/transactions를 통째로 DELETE 후 원격 데이터로 대체. **원격이 완전히
+  비어있으면(최초 로그인 등) 로컬 데이터는 건드리지 않고 그대로 둠** — 이 가드가 없으면 새 기기
+  최초 로그인 시 로컬 데이터가 사라질 수 있으니 이 동작을 바꿀 때 주의.
+- **앱 종료 시**: `pushToFirestore()`로 로컬 전체를 Firestore에 덮어씀(마지막 종료가 항상 이김,
+  병합 로직 없음). 설정 화면의 "지금 동기화" 버튼으로 수동 push도 가능.
+- **멀티기기 로그인 감지**: 로그인 시 Firestore의 `users/{uid}.activeSessionId`를 새 세션ID로
+  덮어쓰고, 5분마다 이 값이 현재 기기 세션ID와 같은지 확인. 다른 기기에서 로그인해 값이 바뀌면
+  이 기기는 자동 로그아웃됨(`AUTH_FORCE_LOGOUT` IPC로 렌더러에 알림).
+- **주의**: 이 Firestore 동기화는 기존의 "iCloud Drive/OneDrive 폴더에 SQLite 파일 두기" 방식과
+  **완전히 별개의 동기화 레이어**로 공존함(설정 화면에 둘 다 있음). 폴더 동기화는 파일 자체를
+  공유, Firestore 동기화는 로그인 계정 기준으로 계좌/보유종목/거래 데이터를 클라우드에 백업·복원.
+  두 기기를 동시에 켜놓고 쓰는 상황은 어느 쪽도 지원 안 함(동기화 충돌 감지/해결 로직 없음).
 
 ## 패키징 관련 주의사항
 
@@ -68,10 +119,13 @@ npm run build:win    # Windows에서만 실행할 것 (better-sqlite3 네이티�
   제목/화면 텍스트는 `index.html`의 `<title>`이나 React 컴포넌트에서 한글 그대로 써도 무방.
 - Windows 빌드는 이 Mac에서 크로스 빌드하지 말고, git으로 코드를 옮긴 뒤 Windows 데스크탑에서
   직접 `npm install && npm run build:win` (better-sqlite3 네이티브 모듈 재빌드 필요, Visual
-  Studio Build Tools의 "Desktop development with C++" 워크로드 필요).
+  Studio Build Tools의 "Desktop development with C++" 워크로드 필요). 두 기기 모두 각자
+  `.env` 파일이 로컬에 있어야 함(git으로 옮겨지지 않으므로 Firebase 콘솔 값을 양쪽에 따로 설정).
+- **`electron-builder.yml`에 `publish` 설정(GitHub Releases)이 있음** — `--publish` 플래그를
+  안 주면 배포 안 되지만, 실수로 배포하지 않으려면 `--publish=never`를 명시하는 게 안전.
+  `npm run release:win`은 의도적으로 `--publish always`를 씀(자동 업데이트 배포 전용 스크립트).
 
-## 데이터 동기화
+## 데이터 동기화 (로컬 폴더)
 
 앱 실행 후 설정 화면에서 데이터 파일 위치를 iCloud Drive/OneDrive 폴더로 지정하면 여러
-기기에서 같은 데이터를 볼 수 있음. 단, 두 기기를 동시에 켜놓고 쓰는 상황은 지원하지 않음
-(동기화 충돌 감지/해결 로직 없음).
+기기에서 같은 SQLite 파일을 볼 수 있음(위 "인증/클라우드 동기화"의 Firestore 방식과는 별개).
