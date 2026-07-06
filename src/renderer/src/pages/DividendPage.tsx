@@ -86,7 +86,7 @@ function DividendPage(): React.JSX.Element {
           {overview.thisMonthPayouts.length === 0 ? (
             <p className="muted">이번달 배당 예정 종목이 없습니다.</p>
           ) : (
-            <table className="data-table compact-table">
+            <table className="data-table compact-table payout-total-table">
               <thead>
                 <tr>
                   <th>종목</th>

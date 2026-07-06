@@ -588,6 +588,14 @@ td.loss {
   border-bottom: none;
 }
 
+.payout-total-table tfoot td {
+  font-weight: 700;
+  padding-top: 12px;
+  padding-bottom: 12px;
+  border-top: 2px solid var(--border);
+  border-bottom: none;
+}
+
 /* 보유종목 등록 폼 (설정 화면) */
 .field-holding-name {
   flex: 2 1 220px;
