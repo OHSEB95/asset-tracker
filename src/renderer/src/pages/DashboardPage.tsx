@@ -42,9 +42,11 @@ function EyeOffIcon(): React.JSX.Element {
 }
 
 function DashboardPage({
-  onNavigateToHoldings
+  onNavigateToHoldings,
+  onNavigateToDividend
 }: {
   onNavigateToHoldings?: () => void
+  onNavigateToDividend?: () => void
 }): React.JSX.Element {
   const { accountTypes } = useAccountsContext()
   const [from, setFrom] = useState(startOfCurrentYear())
@@ -189,7 +191,14 @@ function DashboardPage({
       <div className="dashboard-lower">
         <section className="card chart-card split-chart-card">
           <div className="split-chart-half">
-            <h3>{new Date().getFullYear()}년 월별 배당 · 예상 배당</h3>
+            <div className="section-header">
+              <h3>{new Date().getFullYear()}년 월별 배당 · 예상 배당</h3>
+              {onNavigateToDividend && (
+                <button type="button" className="ghost-button detail-button" onClick={onNavigateToDividend}>
+                  상세
+                </button>
+              )}
+            </div>
             <div className="chart-body">
               {dividendRows.length > 0 ? (
                 <DividendChart data={dividendRows} />

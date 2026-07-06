@@ -5,14 +5,16 @@ import { AuthProvider, useAuthContext } from './state/AuthContext'
 import SettingsPage from './pages/SettingsPage'
 import TransactionEntryPage from './pages/TransactionEntryPage'
 import DashboardPage from './pages/DashboardPage'
+import DividendPage from './pages/DividendPage'
 import HoldingsPage from './pages/HoldingsPage'
 import LoginPage from './pages/LoginPage'
 
-type Tab = 'dashboard' | 'entry' | 'holdings' | 'settings'
+type Tab = 'dashboard' | 'entry' | 'dividend' | 'holdings' | 'settings'
 
 const TABS: Array<{ key: Tab; label: string }> = [
   { key: 'dashboard', label: '대시보드' },
   { key: 'entry', label: '거래 내역' },
+  { key: 'dividend', label: '배당' },
   { key: 'holdings', label: '보유종목' },
   { key: 'settings', label: '설정' }
 ]
@@ -62,8 +64,14 @@ function AppShell(): React.JSX.Element {
             )}
           </nav>
           <main className="tab-content">
-            {tab === 'dashboard' && <DashboardPage onNavigateToHoldings={() => setTab('holdings')} />}
+            {tab === 'dashboard' && (
+              <DashboardPage
+                onNavigateToHoldings={() => setTab('holdings')}
+                onNavigateToDividend={() => setTab('dividend')}
+              />
+            )}
             {tab === 'entry' && <TransactionEntryPage />}
+            {tab === 'dividend' && <DividendPage />}
             {tab === 'holdings' && <HoldingsPage />}
             {tab === 'settings' && <SettingsPage />}
           </main>

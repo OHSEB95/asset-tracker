@@ -58,6 +58,10 @@ const api = {
     getPortfolioSnapshot: (accountTypeCode?: string | null) =>
       ipcRenderer.invoke(IPC.DASHBOARD_GET_PORTFOLIO_SNAPSHOT, accountTypeCode)
   },
+  dividends: {
+    getOverview: (year: number, accountTypeCode?: string | null) =>
+      ipcRenderer.invoke(IPC.DIVIDENDS_GET_OVERVIEW, year, accountTypeCode)
+  },
   auth: {
     login: (email: string, password: string, rememberEmail: boolean, autoLogin: boolean) =>
       ipcRenderer.invoke(IPC.AUTH_LOGIN, email, password, rememberEmail, autoLogin),

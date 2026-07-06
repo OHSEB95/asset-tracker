@@ -560,6 +560,10 @@ td.loss {
   border-top: 1px solid var(--border);
 }
 
+.dividend-chart-card {
+  height: 320px;
+}
+
 .asset-list-card {
   display: flex;
   flex-direction: column;

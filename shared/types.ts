@@ -149,6 +149,34 @@ export interface PortfolioSnapshot {
   totalProfit: number
 }
 
+export interface DividendHoldingDetail {
+  holdingId: number
+  holdingName: string
+  accountTypeLabel: string
+  dividendCycleType: DividendCycleType
+  dividendMonths: number[] | null
+  dividendPerShare: number
+  quantity: number
+  annualProjected: number
+  receivedThisYear: number
+}
+
+export interface DividendUpcoming {
+  holdingId: number
+  holdingName: string
+  yearMonth: string
+}
+
+export interface DividendOverview {
+  year: number
+  monthlyRows: MonthlySummaryRow[]
+  annualProjectedTotal: number
+  thisMonthActual: number
+  thisMonthProjected: number
+  holdings: DividendHoldingDetail[]
+  upcoming: DividendUpcoming[]
+}
+
 export interface AuthUser {
   uid: string
   email: string | null

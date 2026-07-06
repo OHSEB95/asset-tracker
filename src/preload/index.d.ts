@@ -7,6 +7,7 @@ import type {
   AuthUser,
   ChangePasswordResult,
   DashboardFilter,
+  DividendOverview,
   ExchangeRateInfo,
   Holding,
   HoldingInput,
@@ -63,6 +64,9 @@ export interface Api {
   dashboard: {
     getMonthlySummary(filter: DashboardFilter): Promise<MonthlySummaryRow[]>
     getPortfolioSnapshot(accountTypeCode?: string | null): Promise<PortfolioSnapshot>
+  }
+  dividends: {
+    getOverview(year: number, accountTypeCode?: string | null): Promise<DividendOverview>
   }
   auth: {
     login(email: string, password: string, rememberEmail: boolean, autoLogin: boolean): Promise<AuthResult>

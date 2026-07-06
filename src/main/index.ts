@@ -13,6 +13,7 @@ import { registerPricesIpc } from './ipc/prices'
 import { registerRatesIpc } from './ipc/rates'
 import { registerSettingsIpc } from './ipc/settings'
 import { registerDashboardIpc } from './ipc/dashboard'
+import { registerDividendsIpc } from './ipc/dividends'
 import { registerAuthIpc } from './ipc/auth'
 import { registerSyncIpc } from './ipc/sync'
 import { initAutoUpdater } from './services/updater'
@@ -99,6 +100,7 @@ app.whenReady().then(async () => {
   registerRatesIpc()
   registerSettingsIpc()
   registerDashboardIpc()
+  registerDividendsIpc()
   registerAuthIpc()
   registerSyncIpc()
 

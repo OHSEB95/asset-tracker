@@ -28,6 +28,8 @@ export const IPC = {
   DASHBOARD_GET_MONTHLY_SUMMARY: 'dashboard:getMonthlySummary',
   DASHBOARD_GET_PORTFOLIO_SNAPSHOT: 'dashboard:getPortfolioSnapshot',
 
+  DIVIDENDS_GET_OVERVIEW: 'dividends:getOverview',
+
   AUTH_LOGIN: 'auth:login',
   AUTH_REGISTER: 'auth:register',
   AUTH_LOGOUT: 'auth:logout',
