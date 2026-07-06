@@ -471,14 +471,22 @@ td.loss {
   gap: 2px;
 }
 
-.dashboard-principal-chart {
+.dashboard-top-row {
   flex: 0 0 220px;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 85fr 15fr;
+  gap: 12px;
+}
+
+.dashboard-principal-chart,
+.allocation-chart-card {
   display: flex;
   flex-direction: column;
   min-height: 0;
 }
 
-.dashboard-principal-chart h3,
+.dashboard-top-row .chart-card h3,
 .dashboard-lower .chart-card h3 {
   font-size: 13px;
 }
@@ -487,7 +495,7 @@ td.loss {
   flex: 1 1 auto;
   min-height: 0;
   display: grid;
-  grid-template-columns: 2fr 1fr 2fr;
+  grid-template-columns: 35fr 65fr;
   gap: 12px;
 }
 

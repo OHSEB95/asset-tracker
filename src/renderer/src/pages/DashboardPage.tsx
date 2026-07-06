@@ -146,12 +146,25 @@ function DashboardPage({
       )}
 
       {rows.length > 0 && (
-        <section className="card chart-card dashboard-principal-chart">
-          <h3>원금누적 vs 총평가자산</h3>
-          <div className="chart-body">
-            <PrincipalVsValueChart data={rows} />
-          </div>
-        </section>
+        <div className="dashboard-top-row">
+          <section className="card chart-card dashboard-principal-chart">
+            <h3>원금누적 vs 총평가자산</h3>
+            <div className="chart-body">
+              <PrincipalVsValueChart data={rows} />
+            </div>
+          </section>
+
+          <section className="card chart-card allocation-chart-card">
+            <h3>자산 비중</h3>
+            <div className="chart-body">
+              {allocationData.length > 0 ? (
+                <AssetAllocationChart data={allocationData} />
+              ) : (
+                <p className="muted">데이터가 없습니다.</p>
+              )}
+            </div>
+          </section>
+        </div>
       )}
 
       <div className="dashboard-lower">
@@ -171,17 +184,6 @@ function DashboardPage({
             <div className="chart-body">
               {rows.length > 0 ? <SellPnlChart data={rows} /> : <p className="muted">데이터가 없습니다.</p>}
             </div>
-          </div>
-        </section>
-
-        <section className="card chart-card allocation-chart-card">
-          <h3>자산 비중</h3>
-          <div className="chart-body">
-            {allocationData.length > 0 ? (
-              <AssetAllocationChart data={allocationData} />
-            ) : (
-              <p className="muted">데이터가 없습니다.</p>
-            )}
           </div>
         </section>
 
