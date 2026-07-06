@@ -23,6 +23,24 @@ function formatKrw(value: number): string {
   return `${Math.round(value).toLocaleString()}원`
 }
 
+function EyeIcon(): React.JSX.Element {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  )
+}
+
+function EyeOffIcon(): React.JSX.Element {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a18.5 18.5 0 0 1 5.06-5.94M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 7 11 7a18.5 18.5 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24" />
+      <line x1="1" y1="1" x2="23" y2="23" />
+    </svg>
+  )
+}
+
 function DashboardPage({
   onNavigateToHoldings
 }: {
@@ -36,6 +54,7 @@ function DashboardPage({
   const [dividendRows, setDividendRows] = useState<MonthlySummaryRow[]>([])
   const [portfolio, setPortfolio] = useState<PortfolioSnapshot | null>(null)
   const [loading, setLoading] = useState(true)
+  const [hideValues, setHideValues] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -190,11 +209,22 @@ function DashboardPage({
         <section className="card asset-list-card">
           <div className="section-header">
             <h3>총 자산 목록</h3>
-            {onNavigateToHoldings && (
-              <button type="button" className="ghost-button detail-button" onClick={onNavigateToHoldings}>
-                상세
+            <div className="section-header-actions">
+              <button
+                type="button"
+                className="icon-button"
+                onClick={() => setHideValues((v) => !v)}
+                title={hideValues ? '가치/손익 표시' : '가치/손익 숨기기'}
+                aria-label={hideValues ? '가치/손익 표시' : '가치/손익 숨기기'}
+              >
+                {hideValues ? <EyeOffIcon /> : <EyeIcon />}
               </button>
-            )}
+              {onNavigateToHoldings && (
+                <button type="button" className="ghost-button detail-button" onClick={onNavigateToHoldings}>
+                  상세
+                </button>
+              )}
+            </div>
           </div>
           <div className="asset-list-body">
             {!portfolio || portfolio.rows.length === 0 ? (
@@ -205,8 +235,12 @@ function DashboardPage({
                   <tr>
                     <th>구분</th>
                     <th>종목</th>
-                    <th>가치</th>
-                    <th>손익</th>
+                    {!hideValues && (
+                      <>
+                        <th>가치</th>
+                        <th>손익</th>
+                      </>
+                    )}
                     <th>비중</th>
                   </tr>
                 </thead>
@@ -215,10 +249,14 @@ function DashboardPage({
                     <tr key={idx}>
                       <td>{r.accountTypeLabel}</td>
                       <td>{r.label}</td>
-                      <td>{formatKrw(r.value)}</td>
-                      <td className={r.profit == null ? '' : r.profit >= 0 ? 'gain' : 'loss'}>
-                        {r.profit != null ? formatKrw(r.profit) : '-'}
-                      </td>
+                      {!hideValues && (
+                        <>
+                          <td>{formatKrw(r.value)}</td>
+                          <td className={r.profit == null ? '' : r.profit >= 0 ? 'gain' : 'loss'}>
+                            {r.profit != null ? formatKrw(r.profit) : '-'}
+                          </td>
+                        </>
+                      )}
                       <td>{r.weightPercent.toFixed(2)}%</td>
                     </tr>
                   ))}
@@ -226,10 +264,14 @@ function DashboardPage({
                 <tfoot>
                   <tr>
                     <td colSpan={2}>합계</td>
-                    <td>{formatKrw(portfolio.totalValue)}</td>
-                    <td className={portfolio.totalProfit >= 0 ? 'gain' : 'loss'}>
-                      {formatKrw(portfolio.totalProfit)}
-                    </td>
+                    {!hideValues && (
+                      <>
+                        <td>{formatKrw(portfolio.totalValue)}</td>
+                        <td className={portfolio.totalProfit >= 0 ? 'gain' : 'loss'}>
+                          {formatKrw(portfolio.totalProfit)}
+                        </td>
+                      </>
+                    )}
                     <td>100.00%</td>
                   </tr>
                 </tfoot>

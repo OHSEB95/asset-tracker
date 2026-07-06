@@ -1,10 +1,12 @@
-import { app, safeStorage } from 'electron'
+import { app } from 'electron'
 import { existsSync, readFileSync, writeFileSync, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
+import { randomBytes, createCipheriv, createDecipheriv } from 'node:crypto'
 
 const SESSION_FILE = 'auth-session.enc'
 const REMEMBERED_EMAIL_FILE = 'remembered-email.json'
 const SYNC_STATE_FILE = 'sync-state.json'
+const LOCAL_KEY_FILE = 'local.key'
 
 export interface StoredSession {
   uid: string
@@ -17,13 +19,47 @@ function sessionFilePath(): string {
   return join(app.getPath('userData'), SESSION_FILE)
 }
 
+/**
+ * macOS Keychain(safeStorage)에 맡기면 애드혹 서명(scripts/afterSign.js)이 리빌드마다 서명
+ * 아이덴티티를 바꿔서 매번 "Keychain 접근 허용" 암호 입력 창이 뜬다. 자동 로그인의 목적(재로그인
+ * 생략)과 정면으로 배치되므로, OS Keychain 대신 앱 전용 로컬 키 파일로 자체 암호화한다.
+ */
+function localKeyFilePath(): string {
+  return join(app.getPath('userData'), LOCAL_KEY_FILE)
+}
+
+function getOrCreateLocalKey(): Buffer {
+  const filePath = localKeyFilePath()
+  if (existsSync(filePath)) return readFileSync(filePath)
+  const key = randomBytes(32)
+  writeFileSync(filePath, key, { mode: 0o600 })
+  return key
+}
+
+function encryptLocal(plainText: string): Buffer {
+  const key = getOrCreateLocalKey()
+  const iv = randomBytes(12)
+  const cipher = createCipheriv('aes-256-gcm', key, iv)
+  const encrypted = Buffer.concat([cipher.update(plainText, 'utf-8'), cipher.final()])
+  return Buffer.concat([iv, cipher.getAuthTag(), encrypted])
+}
+
+function decryptLocal(data: Buffer): string {
+  const key = getOrCreateLocalKey()
+  const iv = data.subarray(0, 12)
+  const authTag = data.subarray(12, 28)
+  const encrypted = data.subarray(28)
+  const decipher = createDecipheriv('aes-256-gcm', key, iv)
+  decipher.setAuthTag(authTag)
+  return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString('utf-8')
+}
+
 export function readStoredSession(): StoredSession | null {
   const filePath = sessionFilePath()
   if (!existsSync(filePath)) return null
-  if (!safeStorage.isEncryptionAvailable()) return null
   try {
     const encrypted = readFileSync(filePath)
-    const decrypted = safeStorage.decryptString(encrypted)
+    const decrypted = decryptLocal(encrypted)
     return JSON.parse(decrypted) as StoredSession
   } catch {
     return null
@@ -31,10 +67,7 @@ export function readStoredSession(): StoredSession | null {
 }
 
 export function writeStoredSession(session: StoredSession): void {
-  if (!safeStorage.isEncryptionAvailable()) {
-    throw new Error('이 기기에서는 자동 로그인 정보를 안전하게 저장할 수 없습니다.')
-  }
-  const encrypted = safeStorage.encryptString(JSON.stringify(session))
+  const encrypted = encryptLocal(JSON.stringify(session))
   writeFileSync(sessionFilePath(), encrypted)
 }
 

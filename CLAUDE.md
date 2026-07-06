@@ -40,7 +40,10 @@ electron-vite가 빌드 시점에 이 값을 `import.meta.env`로 코드에 박�
   - `ipc/` — 도메인별 1파일, `registerXIpc()` 패턴 (`accounts`/`holdings`/`transactions`/`prices`/`rates`/`settings`/`dashboard`/`auth`/`sync`).
   - `services/priceService.ts` — 시세/환율 조회, 절대 throw 안 함.
   - `services/authSession.ts` — 로그인/회원가입/세션 갱신/멀티기기 강제 로그아웃 감지(5분 간격 폴링).
-  - `services/authStore.ts` — 자동 로그인 세션은 `safeStorage`로 암호화해 로컬 저장, 이메일 저장은 평문(민감정보 아님).
+  - `services/authStore.ts` — 자동 로그인 세션은 앱 전용 로컬 키(userData의 `local.key`,
+    AES-256-GCM)로 자체 암호화해 저장, 이메일 저장은 평문(민감정보 아님). 원래는 macOS
+    `safeStorage`(Keychain)를 썼으나, 애드혹 서명이 리빌드마다 아이덴티티를 바꿔 Keychain이 매번
+    "접근 허용" 암호를 요구하는 문제가 있어 OS Keychain 의존을 제거함.
   - `services/firebase/` — `authApi.ts`(Firebase Auth REST), `firestoreApi.ts`(Firestore REST), `config.ts`(env 읽기).
   - `services/syncService.ts` — `pushToFirestore()`/`pullFromFirestore()`(아래 "클라우드 동기화" 참고).
   - `services/updater.ts` — `electron-updater` 초기화, 패키지 빌드에서만 동작(`app.isPackaged` 체크).

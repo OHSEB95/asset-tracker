@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useAuthContext } from '../state/AuthContext'
+import logoUrl from '../assets/icon.png'
 
 const MIN_PASSWORD_LENGTH = 8
 
@@ -59,7 +60,7 @@ function LoginPage(): React.JSX.Element {
   return (
     <div className="login-screen">
       <div className="login-card">
-        <img src="/icon.png" alt="" className="login-logo" />
+        <img src={logoUrl} alt="" className="login-logo" />
         <h1 className="login-title">자산 관리 프로그램</h1>
 
         {forcedLogoutMessage && <p className="error-text login-message">{forcedLogoutMessage}</p>}

@@ -269,6 +269,28 @@ button:disabled {
   padding: 3px 8px;
 }
 
+.section-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.icon-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px;
+  cursor: pointer;
+}
+
+.icon-button:hover {
+  color: var(--accent);
+}
+
 .price-col-narrow {
   width: 90px;
 }
