@@ -25,6 +25,8 @@ function DividendChart({ data }: { data: MonthlySummaryRow[] }): React.JSX.Eleme
         <CartesianGrid strokeDasharray="3 3" />
         <XAxis dataKey="yearMonth" tick={{ fontSize: 11 }} tickFormatter={formatMonthTick} interval={0} />
         <YAxis
+          width={32}
+          tickMargin={2}
           tick={{ fontSize: 11 }}
           tickFormatter={(v) => `${Math.round(v / 10000).toLocaleString()}만`}
         />

@@ -42,8 +42,8 @@ function AssetAllocationChart({ data }: { data: AllocationSlice[] }): React.JSX.
           data={data}
           dataKey="value"
           nameKey="name"
-          innerRadius="45%"
-          outerRadius="75%"
+          innerRadius="35%"
+          outerRadius="85%"
           paddingAngle={2}
           label={renderInsideLabel}
           labelLine={false}
@@ -53,7 +53,11 @@ function AssetAllocationChart({ data }: { data: AllocationSlice[] }): React.JSX.
           ))}
         </Pie>
         <Tooltip formatter={(value) => formatWon(value)} wrapperStyle={{ fontSize: 11 }} />
-        <Legend wrapperStyle={{ fontSize: 11 }} />
+        <Legend
+          wrapperStyle={{ fontSize: 10, lineHeight: '14px' }}
+          iconSize={8}
+          iconType="circle"
+        />
       </PieChart>
     </ResponsiveContainer>
   )
