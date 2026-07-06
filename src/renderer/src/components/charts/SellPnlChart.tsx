@@ -14,12 +14,16 @@ function formatWon(value: unknown): string {
   return `${Math.round(Number(value)).toLocaleString()}원`
 }
 
+function formatMonthTick(yearMonth: string): string {
+  return `${Number(yearMonth.slice(5, 7))}월`
+}
+
 function SellPnlChart({ data }: { data: MonthlySummaryRow[] }): React.JSX.Element {
   return (
     <ResponsiveContainer width="100%" height="100%">
       <ComposedChart data={data} margin={{ top: 10, right: 4, left: 4, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" />
-        <XAxis dataKey="yearMonth" tick={{ fontSize: 11 }} />
+        <XAxis dataKey="yearMonth" tick={{ fontSize: 11 }} tickFormatter={formatMonthTick} interval={0} />
         <YAxis
           width={44}
           tick={{ fontSize: 11 }}

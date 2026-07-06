@@ -153,7 +153,7 @@ function DashboardPage({
       <div className="dashboard-lower">
         <section className="card chart-card split-chart-card">
           <div className="split-chart-half">
-            <h3>월별 배당 · 예상 배당 ({new Date().getFullYear()}년)</h3>
+            <h3>{new Date().getFullYear()}년 월별 배당 · 예상 배당</h3>
             <div className="chart-body">
               {dividendRows.length > 0 ? (
                 <DividendChart data={dividendRows} />
@@ -163,7 +163,7 @@ function DashboardPage({
             </div>
           </div>
           <div className="split-chart-half">
-            <h3>매도손익</h3>
+            <h3>{new Date().getFullYear()}년 매도손익</h3>
             <div className="chart-body">
               {rows.length > 0 ? <SellPnlChart data={rows} /> : <p className="muted">데이터가 없습니다.</p>}
             </div>
