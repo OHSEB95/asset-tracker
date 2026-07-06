@@ -1,0 +1,32 @@
+name: Release Windows build
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '26'
+
+      - run: npm ci
+
+      # GitHub Releases에는 동일 버전이 이미 있으면 게시가 안 되므로, 매 빌드마다
+      # 실행 번호를 붙여 patch 버전을 유일하게 만든다(package.json 자체는 커밋하지 않음).
+      - name: Bump build version
+        run: npm version "1.0.${{ github.run_number }}" --no-git-tag-version
+
+      - name: Build & publish
+        run: npx electron-vite build && npx electron-builder --win --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MAIN_VITE_FIREBASE_API_KEY: ${{ secrets.MAIN_VITE_FIREBASE_API_KEY }}
+          MAIN_VITE_FIREBASE_PROJECT_ID: ${{ secrets.MAIN_VITE_FIREBASE_PROJECT_ID }}
