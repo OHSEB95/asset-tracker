@@ -115,10 +115,13 @@ export async function pullFromFirestore(): Promise<void> {
 
   const db = getDatabase()
   const replaceAll = db.transaction(() => {
+    // holdings를 지웠다가 아래에서 Firestore 문서 id 그대로 재생성하므로(같은 id로 복원),
+    // FK 검사를 트랜잭션 커밋 시점까지 미뤄서 그 사이엔 price_snapshots(로컬 전용, Firestore에
+    // 동기화되지 않음)를 건드리지 않고 그대로 보존한다. 예전엔 이 시점에 price_snapshots를
+    // 통째로 지웠는데, 그러면 로그인/pull 때마다 현재가 기록이 전부 사라져 평가손익이 항상
+    // 0으로 나오는 문제가 있었다.
+    db.pragma('defer_foreign_keys = ON')
     db.prepare('DELETE FROM transactions').run()
-    // price_snapshots는 Firestore에 동기화되지 않는 로컬 전용 데이터라 여기서 복원할 수 없음 —
-    // holdings를 지우기 전에 먼저 비워야 FK 제약(holding_id REFERENCES holdings(id))에 안 걸림.
-    db.prepare('DELETE FROM price_snapshots').run()
     db.prepare('DELETE FROM holdings').run()
     db.prepare('DELETE FROM accounts').run()
 
@@ -157,6 +160,10 @@ export async function pullFromFirestore(): Promise<void> {
         dividendMonths: h.dividendMonths?.length ? h.dividendMonths.join(',') : null
       })
     }
+
+    // 다른 기기에서 이미 삭제된 종목의 스냅샷만 정리(남아있는 holdings는 위에서 같은 id로
+    // 재생성했으므로 그대로 유효).
+    db.prepare('DELETE FROM price_snapshots WHERE holding_id NOT IN (SELECT id FROM holdings)').run()
 
     const insertTransaction = db.prepare(
       `INSERT INTO transactions

@@ -275,6 +275,12 @@ button:disabled {
   gap: 8px;
 }
 
+.section-header-actions .ghost-button {
+  margin-top: 0;
+  height: 26px;
+  box-sizing: border-box;
+}
+
 .icon-button {
   display: flex;
   align-items: center;
@@ -284,6 +290,8 @@ button:disabled {
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 4px;
+  height: 26px;
+  box-sizing: border-box;
   cursor: pointer;
 }
 
