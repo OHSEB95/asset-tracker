@@ -21,11 +21,10 @@ function formatMonthTick(yearMonth: string): string {
 function SellPnlChart({ data }: { data: MonthlySummaryRow[] }): React.JSX.Element {
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <ComposedChart data={data} margin={{ top: 10, right: 4, left: 4, bottom: 0 }}>
+      <ComposedChart data={data} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" />
         <XAxis dataKey="yearMonth" tick={{ fontSize: 11 }} tickFormatter={formatMonthTick} interval={0} />
         <YAxis
-          width={44}
           tick={{ fontSize: 11 }}
           tickFormatter={(v) => `${Math.round(v / 10000).toLocaleString()}만`}
         />
