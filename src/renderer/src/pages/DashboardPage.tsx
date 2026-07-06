@@ -4,6 +4,7 @@ import type { MonthlySummaryRow, PortfolioSnapshot } from '@shared/types'
 import PrincipalVsValueChart from '../components/charts/PrincipalVsValueChart'
 import DividendChart from '../components/charts/DividendChart'
 import SellPnlChart from '../components/charts/SellPnlChart'
+import AssetAllocationChart, { type AllocationSlice } from '../components/charts/AssetAllocationChart'
 
 function startOfCurrentYear(): string {
   return `${new Date().getFullYear()}-01`
@@ -20,14 +21,6 @@ function currentYearMonth(): string {
 
 function formatKrw(value: number): string {
   return `${Math.round(value).toLocaleString()}원`
-}
-
-function formatByCurrency(value: number | null, currency: 'KRW' | 'USD'): string {
-  if (value == null) return '-'
-  if (currency === 'USD') {
-    return `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-  }
-  return formatKrw(value)
 }
 
 function DashboardPage({
@@ -88,6 +81,17 @@ function DashboardPage({
 
   const latest = rows[rows.length - 1]
   const totalGain = latest ? latest.valuation - latest.principal : 0
+
+  const allocationData: AllocationSlice[] = portfolio
+    ? Object.values(
+        portfolio.rows.reduce<Record<string, AllocationSlice>>((acc, r) => {
+          const slice = acc[r.accountTypeLabel] ?? { name: r.accountTypeLabel, value: 0 }
+          slice.value += r.value
+          acc[r.accountTypeLabel] = slice
+          return acc
+        }, {})
+      )
+    : []
 
   return (
     <div className="dashboard-page">
@@ -170,6 +174,17 @@ function DashboardPage({
           </div>
         </section>
 
+        <section className="card chart-card allocation-chart-card">
+          <h3>자산 비중</h3>
+          <div className="chart-body">
+            {allocationData.length > 0 ? (
+              <AssetAllocationChart data={allocationData} />
+            ) : (
+              <p className="muted">데이터가 없습니다.</p>
+            )}
+          </div>
+        </section>
+
         <section className="card asset-list-card">
           <div className="section-header">
             <h3>총 자산 목록</h3>
@@ -188,9 +203,6 @@ function DashboardPage({
                   <tr>
                     <th>구분</th>
                     <th>종목</th>
-                    <th>수량</th>
-                    <th>평단가</th>
-                    <th>현재가</th>
                     <th>가치</th>
                     <th>손익</th>
                     <th>비중</th>
@@ -201,9 +213,6 @@ function DashboardPage({
                     <tr key={idx}>
                       <td>{r.accountTypeLabel}</td>
                       <td>{r.label}</td>
-                      <td>{r.quantity != null ? r.quantity.toLocaleString() : '-'}</td>
-                      <td>{formatByCurrency(r.avgCost, r.currency)}</td>
-                      <td>{formatByCurrency(r.currentPrice, r.currency)}</td>
                       <td>{formatKrw(r.value)}</td>
                       <td className={r.profit == null ? '' : r.profit >= 0 ? 'gain' : 'loss'}>
                         {r.profit != null ? formatKrw(r.profit) : '-'}
@@ -214,7 +223,7 @@ function DashboardPage({
                 </tbody>
                 <tfoot>
                   <tr>
-                    <td colSpan={5}>합계</td>
+                    <td colSpan={2}>합계</td>
                     <td>{formatKrw(portfolio.totalValue)}</td>
                     <td className={portfolio.totalProfit >= 0 ? 'gain' : 'loss'}>
                       {formatKrw(portfolio.totalProfit)}
