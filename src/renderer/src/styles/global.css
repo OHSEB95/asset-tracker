@@ -453,6 +453,11 @@ td.loss {
   color: var(--loss);
 }
 
+.summary-value.projected-value {
+  color: var(--muted);
+  font-weight: 500;
+}
+
 .compact-table th,
 .compact-table td {
   padding: 4px 8px;

@@ -161,10 +161,10 @@ export interface DividendHoldingDetail {
   receivedThisYear: number
 }
 
-export interface DividendUpcoming {
+export interface DividendPayout {
   holdingId: number
   holdingName: string
-  yearMonth: string
+  amount: number
 }
 
 export interface DividendOverview {
@@ -174,7 +174,7 @@ export interface DividendOverview {
   thisMonthActual: number
   thisMonthProjected: number
   holdings: DividendHoldingDetail[]
-  upcoming: DividendUpcoming[]
+  thisMonthPayouts: DividendPayout[]
 }
 
 export interface AuthUser {

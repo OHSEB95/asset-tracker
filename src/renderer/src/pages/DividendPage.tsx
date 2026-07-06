@@ -6,28 +6,8 @@ function currentYear(): number {
   return new Date().getFullYear()
 }
 
-function currentYearMonth(): string {
-  const now = new Date()
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-}
-
-function addMonth(yearMonth: string, delta: number): string {
-  const [y, m] = yearMonth.split('-').map(Number)
-  let year = y
-  let month = m + delta
-  while (month > 12) {
-    month -= 12
-    year += 1
-  }
-  return `${year}-${String(month).padStart(2, '0')}`
-}
-
 function formatKrw(value: number): string {
   return `${Math.round(value).toLocaleString()}원`
-}
-
-function formatMonthLabel(yearMonth: string): string {
-  return `${Number(yearMonth.slice(5, 7))}월`
 }
 
 function formatCycle(cycleType: 'MONTHLY' | 'CUSTOM', months: number[] | null): string {
@@ -55,20 +35,12 @@ function DividendPage(): React.JSX.Element {
     }
   }, [year])
 
-  const nowMonth = currentYearMonth()
   const isCurrentYear = year === currentYear()
   const totalLabel = isCurrentYear ? '올해 예상 총 배당' : `${year}년 총 배당`
 
   const yearOptions = [currentYear(), currentYear() - 1, currentYear() - 2]
 
-  const upcomingByMonth = new Map<string, string[]>()
-  if (overview) {
-    for (const u of overview.upcoming) {
-      const list = upcomingByMonth.get(u.yearMonth) ?? []
-      list.push(u.holdingName)
-      upcomingByMonth.set(u.yearMonth, list)
-    }
-  }
+  const thisMonthPayoutsTotal = overview?.thisMonthPayouts.reduce((sum, p) => sum + p.amount, 0) ?? 0
 
   return (
     <div className="page">
@@ -100,7 +72,7 @@ function DividendPage(): React.JSX.Element {
                 </div>
                 <div>
                   <span className="summary-label">이번달 예상 배당</span>
-                  <span className="summary-value">{formatKrw(overview.thisMonthProjected)}</span>
+                  <span className="summary-value projected-value">{formatKrw(overview.thisMonthProjected)}</span>
                 </div>
               </>
             )}
@@ -110,14 +82,33 @@ function DividendPage(): React.JSX.Element {
 
       {!loading && isCurrentYear && overview && (
         <section className="card">
-          <p>
-            <strong>이번달({formatMonthLabel(nowMonth)}) 배당 예정:</strong>{' '}
-            {(upcomingByMonth.get(nowMonth) ?? []).join(', ') || '없음'}
-          </p>
-          <p>
-            <strong>다음달({formatMonthLabel(addMonth(nowMonth, 1))}) 배당 예정:</strong>{' '}
-            {(upcomingByMonth.get(addMonth(nowMonth, 1)) ?? []).join(', ') || '없음'}
-          </p>
+          <h3>이번달 배당 예정 종목</h3>
+          {overview.thisMonthPayouts.length === 0 ? (
+            <p className="muted">이번달 배당 예정 종목이 없습니다.</p>
+          ) : (
+            <table className="data-table compact-table">
+              <thead>
+                <tr>
+                  <th>종목</th>
+                  <th>예상 배당액</th>
+                </tr>
+              </thead>
+              <tbody>
+                {overview.thisMonthPayouts.map((p) => (
+                  <tr key={p.holdingId}>
+                    <td>{p.holdingName}</td>
+                    <td>{formatKrw(p.amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td>합계</td>
+                  <td>{formatKrw(thisMonthPayoutsTotal)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          )}
         </section>
       )}
 

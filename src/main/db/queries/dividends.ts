@@ -1,5 +1,5 @@
 import { getDatabase } from '../index'
-import type { DividendHoldingDetail, DividendOverview, DividendUpcoming } from '@shared/types'
+import type { DividendHoldingDetail, DividendOverview, DividendPayout } from '@shared/types'
 import { getHoldingSnapshot } from './holdings'
 import { getMonthlySummary } from './dashboard'
 import { getUsdKrwRate } from '../../services/priceService'
@@ -7,21 +7,6 @@ import { getUsdKrwRate } from '../../services/priceService'
 function currentYearMonth(): string {
   const now = new Date()
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-}
-
-function addMonth(yearMonth: string, delta: number): string {
-  const [y, m] = yearMonth.split('-').map(Number)
-  let year = y
-  let month = m + delta
-  while (month > 12) {
-    month -= 12
-    year += 1
-  }
-  while (month < 1) {
-    month += 12
-    year -= 1
-  }
-  return `${year}-${String(month).padStart(2, '0')}`
 }
 
 export async function getDividendOverview(
@@ -80,8 +65,7 @@ export async function getDividendOverview(
   )
 
   const holdings: DividendHoldingDetail[] = []
-  const upcoming: DividendUpcoming[] = []
-  const upcomingMonths = [nowMonth, addMonth(nowMonth, 1)]
+  const thisMonthPayouts: DividendPayout[] = []
 
   for (const h of holdingRows) {
     const fx = h.account_type_code === 'FOREIGN_STOCK' ? rate : 1
@@ -108,15 +92,21 @@ export async function getDividendOverview(
     })
 
     if (quantity > 0) {
-      for (const month of upcomingMonths) {
-        const monthNum = Number(month.slice(5, 7))
-        const isPayoutMonth = h.dividend_cycle_type === 'MONTHLY' || (dividendMonths ?? []).includes(monthNum)
-        if (isPayoutMonth) upcoming.push({ holdingId: h.id, holdingName: h.name, yearMonth: month })
+      const nowMonthNum = Number(nowMonth.slice(5, 7))
+      const isPayoutThisMonth =
+        h.dividend_cycle_type === 'MONTHLY' || (dividendMonths ?? []).includes(nowMonthNum)
+      if (isPayoutThisMonth) {
+        thisMonthPayouts.push({
+          holdingId: h.id,
+          holdingName: h.name,
+          amount: quantity * h.dividend_per_share * fx
+        })
       }
     }
   }
 
   holdings.sort((a, b) => b.annualProjected - a.annualProjected)
+  thisMonthPayouts.sort((a, b) => b.amount - a.amount)
 
   return {
     year,
@@ -125,6 +115,6 @@ export async function getDividendOverview(
     thisMonthActual,
     thisMonthProjected,
     holdings,
-    upcoming
+    thisMonthPayouts
   }
 }
