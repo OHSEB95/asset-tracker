@@ -81,7 +81,7 @@ const api = {
     }
   },
   sync: {
-    push: () => ipcRenderer.invoke(IPC.SYNC_PUSH),
+    push: (force?: boolean) => ipcRenderer.invoke(IPC.SYNC_PUSH, force),
     getStatus: () => ipcRenderer.invoke(IPC.SYNC_GET_STATUS)
   }
 }

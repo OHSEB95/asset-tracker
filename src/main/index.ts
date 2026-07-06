@@ -5,7 +5,7 @@ import { IPC } from '@shared/ipcChannels'
 import { openDatabase, closeDatabase } from './db'
 import { readSettings } from './services/settingsStore'
 import { restoreSession, getCurrentUser, checkSessionStillActive } from './services/authSession'
-import { pushToFirestore } from './services/syncService'
+import { pushToFirestore, SyncConflictError } from './services/syncService'
 import { registerAccountsIpc } from './ipc/accounts'
 import { registerHoldingsIpc } from './ipc/holdings'
 import { registerTransactionsIpc } from './ipc/transactions'
@@ -132,10 +132,31 @@ app.on('before-quit', (event) => {
   }
 
   event.preventDefault()
-  pushToFirestore()
-    .catch((err) => console.error('[sync] 종료 시 동기화 실패:', err))
-    .finally(() => {
+  ;(async () => {
+    try {
+      await pushToFirestore()
+    } catch (err) {
+      if (err instanceof SyncConflictError) {
+        const { response } = await dialog.showMessageBox({
+          type: 'warning',
+          title: '동기화 충돌',
+          message: '클라우드에 이 기기가 모르는 최신 데이터가 있습니다.',
+          detail:
+            '지금 이 기기의 데이터로 덮어쓰면 클라우드의 최신 변경사항을 잃게 됩니다. ' +
+            '어떻게 할까요?',
+          buttons: ['그래도 덮어쓰고 종료', '백업하지 않고 종료'],
+          defaultId: 1,
+          cancelId: 1
+        })
+        if (response === 0) {
+          await pushToFirestore(true).catch((e) => console.error('[sync] 강제 백업 실패:', e))
+        }
+      } else {
+        console.error('[sync] 종료 시 동기화 실패:', err)
+      }
+    } finally {
       closeDatabase()
       app.exit()
-    })
+    }
+  })()
 })

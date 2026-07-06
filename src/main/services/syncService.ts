@@ -9,6 +9,24 @@ import {
   type FirestoreWrite
 } from './firebase/firestoreApi'
 import { getIdTokenForSync } from './authSession'
+import { readKnownRemoteSyncedAt, writeKnownRemoteSyncedAt } from './authStore'
+
+/** push 시점에 클라우드가 이 기기가 모르는 사이 더 최신으로 바뀌어 있을 때(다른 기기가 먼저
+ * 동기화한 경우) 던져진다. 그대로 덮어쓰면 그 변경사항을 잃으므로, 강제 진행 여부를
+ * 사용자에게 먼저 물어봐야 한다. */
+export class SyncConflictError extends Error {
+  remoteLastSyncedAt: string | null
+  constructor(remoteLastSyncedAt: string | null) {
+    super('클라우드에 이 기기가 모르는 최신 데이터가 있습니다.')
+    this.name = 'SyncConflictError'
+    this.remoteLastSyncedAt = remoteLastSyncedAt
+  }
+}
+
+async function getRemoteLastSyncedAt(idToken: string, uid: string): Promise<string | null> {
+  const doc = await firestoreGetDocument(idToken, `users/${uid}`)
+  return (doc?.lastSyncedAt as string | undefined) ?? null
+}
 
 function accountDocPath(uid: string, id: number): string {
   return `users/${uid}/accounts/${id}`
@@ -42,9 +60,22 @@ async function buildSyncWrites<T extends { id: number }>(
   return writes
 }
 
-/** 로컬 accounts/holdings/transactions 전체를 Firestore에 덮어쓴다 (마지막 push가 항상 이김). */
-export async function pushToFirestore(): Promise<string> {
+/**
+ * 로컬 accounts/holdings/transactions 전체를 Firestore에 덮어쓴다.
+ * force가 아니면 push 전에 이 기기가 모르는 사이 클라우드가 더 최신으로 바뀌었는지 먼저
+ * 확인하고, 그렇다면 덮어쓰지 않고 SyncConflictError를 던진다(마지막 push가 무조건 이기는
+ * 걸 막기 위한 안전장치).
+ */
+export async function pushToFirestore(force = false): Promise<string> {
   const { idToken, uid } = await getIdTokenForSync()
+
+  if (!force) {
+    const remoteLastSyncedAt = await getRemoteLastSyncedAt(idToken, uid)
+    const known = readKnownRemoteSyncedAt()
+    if (remoteLastSyncedAt !== null && remoteLastSyncedAt !== known) {
+      throw new SyncConflictError(remoteLastSyncedAt)
+    }
+  }
 
   const accounts = listAccounts(true)
   const holdings = accounts.flatMap((a) => listHoldingsForAccount(a.id, true))
@@ -60,12 +91,15 @@ export async function pushToFirestore(): Promise<string> {
 
   const lastSyncedAt = new Date().toISOString()
   await firestorePatchDocument(idToken, `users/${uid}`, { lastSyncedAt })
+  writeKnownRemoteSyncedAt(lastSyncedAt)
   return lastSyncedAt
 }
 
 /** Firestore의 데이터로 로컬 accounts/holdings/transactions를 완전히 대체한다. */
 export async function pullFromFirestore(): Promise<void> {
   const { idToken, uid } = await getIdTokenForSync()
+
+  const remoteLastSyncedAt = await getRemoteLastSyncedAt(idToken, uid)
 
   const [accountDocs, holdingDocs, transactionDocs] = await Promise.all([
     firestoreListCollection(idToken, `users/${uid}/accounts`),
@@ -75,6 +109,7 @@ export async function pullFromFirestore(): Promise<void> {
 
   if (accountDocs.length === 0 && holdingDocs.length === 0 && transactionDocs.length === 0) {
     // 원격에 아직 아무 데이터도 없으면(최초 로그인 등) 로컬 데이터를 그대로 둔다.
+    writeKnownRemoteSyncedAt(remoteLastSyncedAt)
     return
   }
 
@@ -145,6 +180,7 @@ export async function pullFromFirestore(): Promise<void> {
     }
   })
   replaceAll()
+  writeKnownRemoteSyncedAt(remoteLastSyncedAt)
 }
 
 export async function getSyncStatus(): Promise<SyncStatus> {

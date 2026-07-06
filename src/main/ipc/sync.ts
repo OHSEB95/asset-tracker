@@ -1,18 +1,21 @@
 import { ipcMain } from 'electron'
 import { IPC } from '@shared/ipcChannels'
 import type { SyncResult, SyncStatus } from '@shared/types'
-import { pushToFirestore, getSyncStatus } from '../services/syncService'
+import { pushToFirestore, getSyncStatus, SyncConflictError } from '../services/syncService'
 
 function toErrorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err)
 }
 
 export function registerSyncIpc(): void {
-  ipcMain.handle(IPC.SYNC_PUSH, async (): Promise<SyncResult> => {
+  ipcMain.handle(IPC.SYNC_PUSH, async (_e, force?: boolean): Promise<SyncResult> => {
     try {
-      const lastSyncedAt = await pushToFirestore()
+      const lastSyncedAt = await pushToFirestore(force)
       return { ok: true, lastSyncedAt }
     } catch (err) {
+      if (err instanceof SyncConflictError) {
+        return { ok: false, conflict: true, remoteLastSyncedAt: err.remoteLastSyncedAt, error: err.message }
+      }
       return { ok: false, error: toErrorMessage(err) }
     }
   })

@@ -4,6 +4,7 @@ import { join } from 'node:path'
 
 const SESSION_FILE = 'auth-session.enc'
 const REMEMBERED_EMAIL_FILE = 'remembered-email.json'
+const SYNC_STATE_FILE = 'sync-state.json'
 
 export interface StoredSession {
   uid: string
@@ -65,4 +66,33 @@ export function writeRememberedEmail(email: string | null): void {
     return
   }
   writeFileSync(filePath, JSON.stringify({ email }), 'utf-8')
+}
+
+function syncStateFilePath(): string {
+  return join(app.getPath('userData'), SYNC_STATE_FILE)
+}
+
+/**
+ * 이 기기가 마지막으로 실제로 반영한(pull로 받아왔거나 push로 직접 써넣은) 클라우드의
+ * lastSyncedAt 값. push 직전에 클라우드의 실제 lastSyncedAt과 비교해 이 기기가 모르는 사이
+ * 다른 기기가 더 최신으로 동기화했는지 감지하는 데 쓴다.
+ */
+export function readKnownRemoteSyncedAt(): string | null {
+  const filePath = syncStateFilePath()
+  if (!existsSync(filePath)) return null
+  try {
+    const parsed = JSON.parse(readFileSync(filePath, 'utf-8')) as { knownRemoteSyncedAt?: string }
+    return parsed.knownRemoteSyncedAt ?? null
+  } catch {
+    return null
+  }
+}
+
+export function writeKnownRemoteSyncedAt(value: string | null): void {
+  const filePath = syncStateFilePath()
+  if (!value) {
+    if (existsSync(filePath)) unlinkSync(filePath)
+    return
+  }
+  writeFileSync(filePath, JSON.stringify({ knownRemoteSyncedAt: value }), 'utf-8')
 }

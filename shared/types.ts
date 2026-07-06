@@ -173,4 +173,6 @@ export interface SyncResult {
   ok: boolean
   error?: string
   lastSyncedAt?: string
+  conflict?: boolean
+  remoteLastSyncedAt?: string | null
 }

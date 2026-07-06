@@ -353,16 +353,29 @@ function SyncCard(): React.JSX.Element {
     window.api.sync.getStatus().then((s) => setLastSyncedAt(s.lastSyncedAt))
   }, [])
 
-  async function handleSync(): Promise<void> {
+  async function handleSync(force = false): Promise<void> {
     setSyncing(true)
     setSyncMessage(null)
     try {
-      const result = await window.api.sync.push()
+      const result = await window.api.sync.push(force)
+      if (result.conflict) {
+        const confirmed = window.confirm(
+          '클라우드에 이 기기가 모르는 최신 데이터가 있습니다. 지금 이 기기의 데이터로 덮어쓰면 ' +
+            '그 변경사항을 잃게 됩니다.\n\n계속해서 이 기기의 데이터로 덮어쓸까요?\n' +
+            '(취소를 누르고 로그아웃 후 다시 로그인하면 클라우드의 최신 데이터를 먼저 받아올 수 있습니다.)'
+        )
+        if (confirmed) {
+          await handleSync(true)
+          return
+        }
+        setSyncMessage('백업이 취소되었습니다. 최신 데이터를 받으려면 로그아웃 후 다시 로그인해주세요.')
+        return
+      }
       if (result.error) {
-        setSyncMessage(`동기화 실패: ${result.error}`)
+        setSyncMessage(`백업 실패: ${result.error}`)
       } else {
         setLastSyncedAt(result.lastSyncedAt ?? null)
-        setSyncMessage('동기화가 완료되었습니다.')
+        setSyncMessage('이 기기의 데이터를 클라우드에 백업했습니다.')
       }
     } finally {
       setSyncing(false)
@@ -373,20 +386,21 @@ function SyncCard(): React.JSX.Element {
     <section className="card">
       <h2>클라우드 동기화</h2>
       <p className="muted">
-        {user?.email} 계정으로 로그인되어 있습니다. 앱 종료 시에도 자동으로 동기화됩니다.
+        {user?.email} 계정으로 로그인되어 있습니다. 로그인할 때 클라우드의 최신 데이터를
+        받아오고, 앱을 종료할 때 이 기기의 데이터를 클라우드에 자동으로 백업합니다.
       </p>
       <p className="path-display">
-        마지막 동기화: {lastSyncedAt ? new Date(lastSyncedAt).toLocaleString() : '없음'}
+        마지막 백업: {lastSyncedAt ? new Date(lastSyncedAt).toLocaleString() : '없음'}
       </p>
       <div className="form-actions">
-        <button onClick={handleSync} disabled={syncing}>
-          지금 동기화
+        <button onClick={() => handleSync(false)} disabled={syncing}>
+          이 기기 데이터를 클라우드에 백업
         </button>
         <button type="button" className="ghost-button" onClick={logout}>
           로그아웃
         </button>
       </div>
-      {syncMessage && <p className={syncMessage.startsWith('동기화 실패') ? 'error-text' : 'success-text'}>{syncMessage}</p>}
+      {syncMessage && <p className={syncMessage.includes('실패') || syncMessage.includes('취소') ? 'error-text' : 'success-text'}>{syncMessage}</p>}
     </section>
   )
 }

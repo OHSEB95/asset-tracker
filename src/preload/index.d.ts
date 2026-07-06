@@ -81,7 +81,7 @@ export interface Api {
     onForceLogout(callback: () => void): () => void
   }
   sync: {
-    push(): Promise<SyncResult>
+    push(force?: boolean): Promise<SyncResult>
     getStatus(): Promise<SyncStatus>
   }
 }
