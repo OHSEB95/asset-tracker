@@ -5,6 +5,7 @@ import PrincipalVsValueChart from '../components/charts/PrincipalVsValueChart'
 import DividendChart from '../components/charts/DividendChart'
 import SellPnlChart from '../components/charts/SellPnlChart'
 import AssetAllocationChart, { type AllocationSlice } from '../components/charts/AssetAllocationChart'
+import { typeRowClass } from '../utils/accountTypeStyle'
 
 function startOfCurrentYear(): string {
   return `${new Date().getFullYear()}-01`
@@ -217,7 +218,7 @@ function DashboardPage({
 
         <section className="card asset-list-card">
           <div className="section-header">
-            <h3>총 자산 목록</h3>
+            <h3>자산 TOP 10</h3>
             <div className="section-header-actions">
               <button
                 type="button"
@@ -254,8 +255,8 @@ function DashboardPage({
                   </tr>
                 </thead>
                 <tbody>
-                  {portfolio.rows.map((r, idx) => (
-                    <tr key={idx}>
+                  {portfolio.rows.slice(0, 10).map((r, idx) => (
+                    <tr key={idx} className={typeRowClass(r.accountTypeLabel)}>
                       <td>{r.accountTypeLabel}</td>
                       <td>{r.label}</td>
                       {!hideValues && (
@@ -270,20 +271,6 @@ function DashboardPage({
                     </tr>
                   ))}
                 </tbody>
-                <tfoot>
-                  <tr>
-                    <td colSpan={2}>합계</td>
-                    {!hideValues && (
-                      <>
-                        <td>{formatKrw(portfolio.totalValue)}</td>
-                        <td className={portfolio.totalProfit >= 0 ? 'gain' : 'loss'}>
-                          {formatKrw(portfolio.totalProfit)}
-                        </td>
-                      </>
-                    )}
-                    <td>100.00%</td>
-                  </tr>
-                </tfoot>
               </table>
             )}
           </div>

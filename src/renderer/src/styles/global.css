@@ -307,25 +307,25 @@ button:disabled {
   table-layout: fixed;
 }
 
-.holdings-table tbody tr.row-type-foreign-stock {
+tr.row-type-foreign-stock {
   background: #eef4ff;
 }
-.holdings-table tbody tr.row-type-domestic-stock {
+tr.row-type-domestic-stock {
   background: #eefbf1;
 }
-.holdings-table tbody tr.row-type-youth-savings {
+tr.row-type-youth-savings {
   background: #fff8e8;
 }
-.holdings-table tbody tr.row-type-pension-fund {
+tr.row-type-pension-fund {
   background: #f4eeff;
 }
-.holdings-table tbody tr.row-type-irp {
+tr.row-type-irp {
   background: #e9fbfa;
 }
-.holdings-table tbody tr.row-type-isa {
+tr.row-type-isa {
   background: #fdeef6;
 }
-.holdings-table tbody tr.row-type-bitcoin {
+tr.row-type-bitcoin {
   background: #fff1e6;
 }
 
@@ -587,12 +587,6 @@ td.loss {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
-}
-
-.asset-list-body tfoot td {
-  font-weight: 700;
-  border-top: 2px solid var(--border);
-  border-bottom: none;
 }
 
 .payout-total-table tfoot td {

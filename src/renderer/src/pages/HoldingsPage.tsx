@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAccountsContext } from '../state/AccountsContext'
 import type { PortfolioSnapshot } from '@shared/types'
+import { typeRowClass } from '../utils/accountTypeStyle'
 
 function formatMoney(value: number | null, currency: 'KRW' | 'USD'): string {
   if (value == null) return '-'
@@ -19,19 +20,6 @@ function currentYearMonth(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
 
-const TYPE_ROW_CLASS: Record<string, string> = {
-  해외주식: 'row-type-foreign-stock',
-  국내주식: 'row-type-domestic-stock',
-  안전자산: 'row-type-youth-savings',
-  연금저축펀드: 'row-type-pension-fund',
-  IRP: 'row-type-irp',
-  ISA: 'row-type-isa',
-  비트코인: 'row-type-bitcoin'
-}
-
-function typeRowClass(accountTypeLabel: string): string {
-  return TYPE_ROW_CLASS[accountTypeLabel] ?? ''
-}
 
 function HoldingsPage(): React.JSX.Element {
   const { holdings } = useAccountsContext()
