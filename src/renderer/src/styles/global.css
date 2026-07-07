@@ -534,6 +534,10 @@ td.loss {
   min-height: 0;
 }
 
+.allocation-chart-card h3 {
+  margin-bottom: 0;
+}
+
 .dashboard-top-row .chart-card h3,
 .dashboard-lower .chart-card h3 {
   font-size: 13px;

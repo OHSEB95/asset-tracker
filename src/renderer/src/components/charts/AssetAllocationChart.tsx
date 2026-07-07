@@ -37,13 +37,13 @@ function renderInsideLabel({ cx = 0, cy = 0, midAngle = 0, innerRadius = 0, oute
 function AssetAllocationChart({ data }: { data: AllocationSlice[] }): React.JSX.Element {
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <PieChart margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
+      <PieChart margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
         <Pie
           data={data}
           dataKey="value"
           nameKey="name"
-          innerRadius="35%"
-          outerRadius="85%"
+          innerRadius="38%"
+          outerRadius="92%"
           paddingAngle={2}
           label={renderInsideLabel}
           labelLine={false}
