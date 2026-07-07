@@ -203,4 +203,6 @@ export interface SyncResult {
   lastSyncedAt?: string
   conflict?: boolean
   remoteLastSyncedAt?: string | null
+  accountDeletion?: boolean
+  deletedAccountNames?: string[]
 }

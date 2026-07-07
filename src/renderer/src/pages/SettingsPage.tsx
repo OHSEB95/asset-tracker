@@ -371,6 +371,21 @@ function SyncCard(): React.JSX.Element {
         setSyncMessage('백업이 취소되었습니다. 최신 데이터를 받으려면 로그아웃 후 다시 로그인해주세요.')
         return
       }
+      if (result.accountDeletion) {
+        const names = (result.deletedAccountNames ?? []).join(', ')
+        const confirmed = window.confirm(
+          `이 기기에는 없는 다음 계좌가 클라우드에서 삭제됩니다: ${names}\n\n` +
+            '이 계좌들을 이 기기가 아직 받아온 적이 없어서 생기는 문제일 수 있습니다.\n' +
+            '정말로 계속해서 삭제할까요? (취소를 누르고 로그아웃 후 다시 로그인하면 ' +
+            '해당 계좌를 이 기기로 먼저 받아올 수 있습니다.)'
+        )
+        if (confirmed) {
+          await handleSync(true)
+          return
+        }
+        setSyncMessage('백업이 취소되었습니다. 로그아웃 후 다시 로그인해서 누락된 계좌를 먼저 받아와주세요.')
+        return
+      }
       if (result.error) {
         setSyncMessage(`백업 실패: ${result.error}`)
       } else {

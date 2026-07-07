@@ -5,7 +5,7 @@ import { IPC } from '@shared/ipcChannels'
 import { openDatabase, closeDatabase } from './db'
 import { readSettings } from './services/settingsStore'
 import { restoreSession, getCurrentUser, checkSessionStillActive } from './services/authSession'
-import { pushToFirestore, SyncConflictError } from './services/syncService'
+import { pushToFirestore, SyncConflictError, AccountDeletionGuardError } from './services/syncService'
 import { registerAccountsIpc } from './ipc/accounts'
 import { registerHoldingsIpc } from './ipc/holdings'
 import { registerTransactionsIpc } from './ipc/transactions'
@@ -145,6 +145,22 @@ app.on('before-quit', (event) => {
           message: '클라우드에 이 기기가 모르는 최신 데이터가 있습니다.',
           detail:
             '지금 이 기기의 데이터로 덮어쓰면 클라우드의 최신 변경사항을 잃게 됩니다. ' +
+            '어떻게 할까요?',
+          buttons: ['그래도 덮어쓰고 종료', '백업하지 않고 종료'],
+          defaultId: 1,
+          cancelId: 1
+        })
+        if (response === 0) {
+          await pushToFirestore(true).catch((e) => console.error('[sync] 강제 백업 실패:', e))
+        }
+      } else if (err instanceof AccountDeletionGuardError) {
+        const { response } = await dialog.showMessageBox({
+          type: 'warning',
+          title: '계좌 삭제 경고',
+          message: '이 기기에는 없는 계좌가 클라우드에서 삭제됩니다.',
+          detail:
+            `삭제될 계좌: ${err.deletedAccountNames.join(', ')}\n\n` +
+            '이 계좌들을 이 기기가 아직 받아온 적이 없어서 생기는 문제일 수 있습니다. ' +
             '어떻게 할까요?',
           buttons: ['그래도 덮어쓰고 종료', '백업하지 않고 종료'],
           defaultId: 1,

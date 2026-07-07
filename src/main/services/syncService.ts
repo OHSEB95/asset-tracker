@@ -23,6 +23,19 @@ export class SyncConflictError extends Error {
   }
 }
 
+/** push는 로컬에 없는 계좌를 클라우드에서도 삭제한다. 이 기기의 로컬 데이터가 애초에
+ * 불완전하면(예: 다른 기기에서만 입력한 계좌를 이 기기가 한 번도 받아본 적 없는 경우)
+ * push 한 번으로 클라우드의 계좌가 통째로 사라질 수 있어, 계좌 단위 삭제가 감지되면
+ * 강제 진행 여부를 먼저 물어봐야 한다. */
+export class AccountDeletionGuardError extends Error {
+  deletedAccountNames: string[]
+  constructor(deletedAccountNames: string[]) {
+    super('이 기기에 없는 계좌가 클라우드에서 삭제됩니다.')
+    this.name = 'AccountDeletionGuardError'
+    this.deletedAccountNames = deletedAccountNames
+  }
+}
+
 async function getRemoteLastSyncedAt(idToken: string, uid: string): Promise<string | null> {
   const doc = await firestoreGetDocument(idToken, `users/${uid}`)
   return (doc?.lastSyncedAt as string | undefined) ?? null
@@ -80,6 +93,17 @@ export async function pushToFirestore(force = false): Promise<string> {
   const accounts = listAccounts(true)
   const holdings = accounts.flatMap((a) => listHoldingsForAccount(a.id, true))
   const transactions = listTransactions({})
+
+  if (!force) {
+    const localAccountIds = new Set(accounts.map((a) => a.id))
+    const remoteAccounts = await firestoreListCollection(idToken, `users/${uid}/accounts`)
+    const deletedAccountNames = remoteAccounts
+      .filter((d) => !localAccountIds.has(Number(d.id)))
+      .map((d) => (d.fields as unknown as Account).name)
+    if (deletedAccountNames.length > 0) {
+      throw new AccountDeletionGuardError(deletedAccountNames)
+    }
+  }
 
   const [accountWrites, holdingWrites, transactionWrites] = await Promise.all([
     buildSyncWrites(idToken, uid, 'accounts', accountDocPath, accounts),
