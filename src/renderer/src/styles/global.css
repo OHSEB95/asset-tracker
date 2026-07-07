@@ -303,29 +303,12 @@ button:disabled {
   width: 90px;
 }
 
-.price-col-narrow input {
-  width: 80px;
-}
-
-.price-placeholder {
-  display: inline-block;
-  width: 80px;
-  padding: 7px 9px;
-  border: 1px solid transparent;
-  font-size: 13px;
-  box-sizing: border-box;
-}
-
 .holdings-table {
   table-layout: fixed;
 }
 
 .col-type {
   width: 8%;
-}
-
-.col-account {
-  width: 13%;
 }
 
 .col-product {
@@ -337,7 +320,6 @@ button:disabled {
 }
 
 .col-type,
-.col-account,
 .col-product {
   overflow: hidden;
   white-space: nowrap;
@@ -397,12 +379,6 @@ button:disabled {
 
 .entry-table input {
   width: 100px;
-}
-
-.valuation-cell {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
 }
 
 .row-actions {

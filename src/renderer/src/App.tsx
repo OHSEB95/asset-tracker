@@ -15,7 +15,7 @@ const TABS: Array<{ key: Tab; label: string }> = [
   { key: 'dashboard', label: '대시보드' },
   { key: 'entry', label: '거래 내역' },
   { key: 'dividend', label: '배당' },
-  { key: 'holdings', label: '보유종목' },
+  { key: 'holdings', label: '자산현황' },
   { key: 'settings', label: '설정' }
 ]
 
