@@ -338,6 +338,12 @@ tr.row-type-bitcoin {
   border-top: 2px solid var(--border);
 }
 
+.prices-updated-at {
+  margin: 8px 2px 0;
+  font-size: 11px;
+  color: var(--muted);
+}
+
 .col-type {
   width: 8%;
 }

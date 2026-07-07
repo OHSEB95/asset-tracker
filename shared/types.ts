@@ -147,6 +147,7 @@ export interface PortfolioSnapshot {
   rows: PortfolioRow[]
   totalValue: number
   totalProfit: number
+  pricesUpdatedAt: string | null
 }
 
 export interface DividendHoldingDetail {

@@ -287,6 +287,7 @@ export async function getPortfolioSnapshot(accountTypeCode?: string | null): Pro
     .all(...params) as Array<{ id: number; name: string; account_type_code: string; label_ko: string }>
 
   const rows: PortfolioRow[] = []
+  const priceHoldingIds: number[] = []
 
   for (const acct of accountRows) {
     const isForeign = acct.account_type_code === 'FOREIGN_STOCK'
@@ -329,6 +330,7 @@ export async function getPortfolioSnapshot(accountTypeCode?: string | null): Pro
 
       if (snap.quantity == null || snap.quantity <= 0) continue
       hasHoldingRows = true
+      priceHoldingIds.push(h.id)
       const currentPrice = snap.lastKnownPrice ?? snap.avgCost
       const value = currentPrice != null ? snap.quantity * currentPrice * fx : 0
       const profit =
@@ -390,5 +392,16 @@ export async function getPortfolioSnapshot(accountTypeCode?: string | null): Pro
     weightPercent: totalValue > 0 ? (r.value / totalValue) * 100 : 0
   }))
 
-  return { rows: weighted, totalValue, totalProfit }
+  let pricesUpdatedAt: string | null = null
+  if (priceHoldingIds.length > 0) {
+    const placeholders = priceHoldingIds.map(() => '?').join(',')
+    const row = db
+      .prepare(`SELECT MAX(updated_at) AS maxUpdated FROM price_snapshots WHERE holding_id IN (${placeholders})`)
+      .get(...priceHoldingIds) as { maxUpdated: string | null }
+    // SQLite datetime('now')는 UTC를 공백 구분 형식으로 저장하므로, 렌더러에서 안전하게
+    // 로컬시간으로 파싱할 수 있도록 ISO 8601(Z) 형식으로 바꿔서 내려준다.
+    pricesUpdatedAt = row.maxUpdated ? `${row.maxUpdated.replace(' ', 'T')}Z` : null
+  }
+
+  return { rows: weighted, totalValue, totalProfit, pricesUpdatedAt }
 }
