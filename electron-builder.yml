@@ -9,6 +9,7 @@ publish:
   provider: github
   owner: OHSEB95
   repo: asset-tracker
+  releaseType: release
 mac:
   target: dmg
   category: public.app-category.finance
