@@ -307,6 +307,37 @@ button:disabled {
   table-layout: fixed;
 }
 
+.holdings-table tbody tr.row-type-foreign-stock {
+  background: #eef4ff;
+}
+.holdings-table tbody tr.row-type-domestic-stock {
+  background: #eefbf1;
+}
+.holdings-table tbody tr.row-type-youth-savings {
+  background: #fff8e8;
+}
+.holdings-table tbody tr.row-type-pension-fund {
+  background: #f4eeff;
+}
+.holdings-table tbody tr.row-type-irp {
+  background: #e9fbfa;
+}
+.holdings-table tbody tr.row-type-isa {
+  background: #fdeef6;
+}
+.holdings-table tbody tr.row-type-bitcoin {
+  background: #fff1e6;
+}
+
+.holdings-total-row td {
+  font-weight: 700;
+  font-size: 14px;
+  padding-top: 12px;
+  padding-bottom: 12px;
+  background: var(--bg);
+  border-top: 2px solid var(--border);
+}
+
 .col-type {
   width: 8%;
 }

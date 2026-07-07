@@ -19,6 +19,20 @@ function currentYearMonth(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
 
+const TYPE_ROW_CLASS: Record<string, string> = {
+  해외주식: 'row-type-foreign-stock',
+  국내주식: 'row-type-domestic-stock',
+  안전자산: 'row-type-youth-savings',
+  연금저축펀드: 'row-type-pension-fund',
+  IRP: 'row-type-irp',
+  ISA: 'row-type-isa',
+  비트코인: 'row-type-bitcoin'
+}
+
+function typeRowClass(accountTypeLabel: string): string {
+  return TYPE_ROW_CLASS[accountTypeLabel] ?? ''
+}
+
 function HoldingsPage(): React.JSX.Element {
   const { holdings } = useAccountsContext()
   const [portfolio, setPortfolio] = useState<PortfolioSnapshot | null>(null)
@@ -76,7 +90,7 @@ function HoldingsPage(): React.JSX.Element {
             </thead>
             <tbody>
               {portfolio.rows.map((r, idx) => (
-                <tr key={idx}>
+                <tr key={idx} className={typeRowClass(r.accountTypeLabel)}>
                   <td className="col-type">{r.accountTypeLabel}</td>
                   <td className="col-product">{r.label}</td>
                   <td>{r.quantity != null ? r.quantity.toLocaleString() : '-'}</td>
@@ -90,7 +104,7 @@ function HoldingsPage(): React.JSX.Element {
                 </tr>
               ))}
             </tbody>
-            <tfoot>
+            <tfoot className="holdings-total-row">
               <tr>
                 <td colSpan={5}>합계</td>
                 <td className="value-cell">{formatKrw(portfolio.totalValue)}</td>
