@@ -14,8 +14,8 @@ type Tab = 'dashboard' | 'entry' | 'dividend' | 'holdings' | 'settings'
 const TABS: Array<{ key: Tab; label: string }> = [
   { key: 'dashboard', label: '대시보드' },
   { key: 'entry', label: '거래 내역' },
-  { key: 'dividend', label: '배당' },
   { key: 'holdings', label: '자산현황' },
+  { key: 'dividend', label: '배당' },
   { key: 'settings', label: '설정' }
 ]
 
@@ -71,8 +71,8 @@ function AppShell(): React.JSX.Element {
               />
             )}
             {tab === 'entry' && <TransactionEntryPage />}
-            {tab === 'dividend' && <DividendPage />}
             {tab === 'holdings' && <HoldingsPage />}
+            {tab === 'dividend' && <DividendPage />}
             {tab === 'settings' && <SettingsPage />}
           </main>
         </div>
