@@ -329,6 +329,22 @@ tr.row-type-bitcoin {
   background: #fff1e6;
 }
 
+tr.tx-row-buy {
+  background: #fdeef3;
+}
+tr.tx-row-sell {
+  background: #eaf4ff;
+}
+tr.tx-row-adjust {
+  background: #f2f3f5;
+}
+tr.tx-row-deposit {
+  background: #fffbe6;
+}
+tr.tx-row-dividend {
+  background: #f0f9e0;
+}
+
 .holdings-total-row td {
   font-weight: 700;
   font-size: 14px;

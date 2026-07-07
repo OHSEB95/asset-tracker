@@ -19,6 +19,14 @@ const TYPE_LABEL: Record<TransactionType, string> = {
   CLOSE: '해지'
 }
 
+const TYPE_ROW_CLASS: Partial<Record<TransactionType, string>> = {
+  BUY: 'tx-row-buy',
+  SELL: 'tx-row-sell',
+  ADJUST: 'tx-row-adjust',
+  DEPOSIT: 'tx-row-deposit',
+  DIVIDEND: 'tx-row-dividend'
+}
+
 const STOCK_TYPE_CODES: TransactionType[] = ['DEPOSIT', 'WITHDRAWAL', 'BUY', 'SELL', 'ADJUST', 'DIVIDEND']
 const SAVINGS_TYPE_CODES: TransactionType[] = ['DEPOSIT', 'WITHDRAWAL', 'ADJUST', 'CLOSE']
 
@@ -561,7 +569,7 @@ function TransactionEntryPage(): React.JSX.Element {
               </thead>
               <tbody>
                 {transactions.map((t) => (
-                  <tr key={t.id}>
+                  <tr key={t.id} className={TYPE_ROW_CLASS[t.type] ?? ''}>
                     <td>{t.date}</td>
                     <td>{TYPE_LABEL[t.type]}</td>
                     <td className="col-divider-left">{productLabelForTx(t)}</td>
