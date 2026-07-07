@@ -39,9 +39,25 @@ jobs:
           git tag "v${{ steps.version.outputs.version }}"
           git push origin "v${{ steps.version.outputs.version }}"
 
-      - name: Build & publish
-        run: npx electron-vite build && npx electron-builder --win --publish always
+      # electron-builder의 --publish always는 exe/blockmap을 병렬로 올리면서 같은 태그에
+      # 릴리즈를 두 개 만들어버리는 경우가 있어(레이스 컨디션), 여기서는 로컬 빌드만 하고
+      # 업로드는 gh release create로 한 번에 처리한다.
+      - name: Build (no publish)
+        shell: bash
+        run: npx electron-vite build && npx electron-builder --win --publish never
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           MAIN_VITE_FIREBASE_API_KEY: ${{ secrets.MAIN_VITE_FIREBASE_API_KEY }}
           MAIN_VITE_FIREBASE_PROJECT_ID: ${{ secrets.MAIN_VITE_FIREBASE_PROJECT_ID }}
+
+      - name: Create GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          gh release create "v$VERSION" \
+            "dist/AssetTracker-Setup-$VERSION.exe" \
+            "dist/AssetTracker-Setup-$VERSION.exe.blockmap" \
+            "dist/latest.yml" \
+            --title "v$VERSION" \
+            --notes "자동 빌드"
