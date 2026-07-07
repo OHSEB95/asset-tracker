@@ -71,6 +71,10 @@ function TransactionEntryPage(): React.JSX.Element {
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [editingTxId, setEditingTxId] = useState<number | null>(null)
 
+  const [historyYearMonth, setHistoryYearMonth] = useState(currentYearMonth())
+  const [historyTypeFilter, setHistoryTypeFilter] = useState<TransactionType | ''>('')
+  const [historySearch, setHistorySearch] = useState('')
+
   const isAllSelected = assetTypeCode === ''
   const matchingAccounts = accounts.filter((a) => a.accountTypeCode === assetTypeCode)
   const resolvedAccountId =
@@ -107,9 +111,10 @@ function TransactionEntryPage(): React.JSX.Element {
   }, [isSavingsAccount, type, holdingId])
 
   function buildFilter(): TransactionListFilter | null {
-    if (isAllSelected) return {}
-    if (resolvedAccountId != null) return { accountId: resolvedAccountId }
-    if (matchingAccounts.length > 1) return { accountTypeCode: assetTypeCode }
+    const dateRange = { from: `${historyYearMonth}-01`, to: `${historyYearMonth}-31` }
+    if (isAllSelected) return dateRange
+    if (resolvedAccountId != null) return { accountId: resolvedAccountId, ...dateRange }
+    if (matchingAccounts.length > 1) return { accountTypeCode: assetTypeCode, ...dateRange }
     return null
   }
 
@@ -127,7 +132,7 @@ function TransactionEntryPage(): React.JSX.Element {
       cancelled = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [assetTypeCode, resolvedAccountId, matchingAccounts.length])
+  }, [assetTypeCode, resolvedAccountId, matchingAccounts.length, historyYearMonth])
 
   const isHoldingShapedStock =
     !isSavingsAccount &&
@@ -333,6 +338,14 @@ function TransactionEntryPage(): React.JSX.Element {
   const visibleTypeCodes = isSavingsAccount ? SAVINGS_TYPE_CODES : STOCK_TYPE_CODES
   const hideStockColumns = isSavingsAccount
   const productLabel = isSavingsAccount ? '상품명' : '종목'
+
+  const filteredTransactions = transactions.filter((t) => {
+    if (historyTypeFilter && t.type !== historyTypeFilter) return false
+    if (historySearch.trim() && !productLabelForTx(t).toLowerCase().includes(historySearch.trim().toLowerCase())) {
+      return false
+    }
+    return true
+  })
   const canSubmit =
     !saving &&
     resolvedAccountId != null &&
@@ -548,10 +561,45 @@ function TransactionEntryPage(): React.JSX.Element {
 
       <section className="card tx-history-card">
         <h3>최근 거래</h3>
+        <div className="tx-history-filters">
+          <label>
+            년/월
+            <input
+              type="month"
+              value={historyYearMonth}
+              onChange={(e) => setHistoryYearMonth(e.target.value)}
+            />
+          </label>
+          <label>
+            거래유형
+            <select
+              value={historyTypeFilter}
+              onChange={(e) => setHistoryTypeFilter(e.target.value as TransactionType | '')}
+            >
+              <option value="">전체</option>
+              {(Object.keys(TYPE_LABEL) as TransactionType[]).map((code) => (
+                <option key={code} value={code}>
+                  {TYPE_LABEL[code]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            종목 검색
+            <input
+              type="text"
+              value={historySearch}
+              onChange={(e) => setHistorySearch(e.target.value)}
+              placeholder="종목명으로 검색"
+            />
+          </label>
+        </div>
         {deleteError && <p className="error-text">{deleteError}</p>}
         <div className="tx-history-body">
           {transactions.length === 0 ? (
-            <p className="muted">아직 입력된 거래가 없습니다.</p>
+            <p className="muted">이 달에 입력된 거래가 없습니다.</p>
+          ) : filteredTransactions.length === 0 ? (
+            <p className="muted">필터에 맞는 거래가 없습니다.</p>
           ) : (
             <table className="data-table">
               <thead>
@@ -568,7 +616,7 @@ function TransactionEntryPage(): React.JSX.Element {
                 </tr>
               </thead>
               <tbody>
-                {transactions.map((t) => (
+                {filteredTransactions.map((t) => (
                   <tr key={t.id} className={TYPE_ROW_CLASS[t.type] ?? ''}>
                     <td>{t.date}</td>
                     <td>{TYPE_LABEL[t.type]}</td>

@@ -417,6 +417,29 @@ tr.tx-row-dividend {
   overflow-y: auto;
 }
 
+.tx-history-filters {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 8px 0 14px;
+}
+
+.tx-history-filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.tx-history-card thead th {
+  position: sticky;
+  top: 0;
+  background: var(--card-bg);
+  z-index: 1;
+}
+
 .data-table {
   width: 100%;
   border-collapse: collapse;
