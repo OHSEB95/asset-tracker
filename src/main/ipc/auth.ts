@@ -25,6 +25,11 @@ export function registerAuthIpc(): void {
         await pullFromFirestore()
         return { user }
       } catch (err) {
+        // login()은 성공했는데 pullFromFirestore()가 실패한 경우(예: FOREIGN KEY 오류)에도
+        // 세션을 정리해야 한다. 안 그러면 화면엔 로그인 실패로 보이는데 백엔드는 로그인된
+        // 상태로 남아서, 이후 앱을 종료할 때 자동 push가 실행돼 로컬의 불완전한 데이터로
+        // 클라우드를 덮어써버리는 사고로 이어진다.
+        logout()
         return { error: toErrorMessage(err) }
       }
     }
