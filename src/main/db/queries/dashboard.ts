@@ -322,7 +322,9 @@ export async function getPortfolioSnapshot(accountTypeCode?: string | null): Pro
           currentPrice: null,
           currency,
           value: balance * fx,
+          rawValue: balance,
           profit: null,
+          rawProfit: null,
           weightPercent: 0
         })
         continue
@@ -332,11 +334,11 @@ export async function getPortfolioSnapshot(accountTypeCode?: string | null): Pro
       hasHoldingRows = true
       priceHoldingIds.push(h.id)
       const currentPrice = snap.lastKnownPrice ?? snap.avgCost
-      const value = currentPrice != null ? snap.quantity * currentPrice * fx : 0
-      const profit =
-        currentPrice != null && snap.avgCost != null
-          ? (currentPrice - snap.avgCost) * snap.quantity * fx
-          : null
+      const rawValue = currentPrice != null ? snap.quantity * currentPrice : 0
+      const value = rawValue * fx
+      const rawProfit =
+        currentPrice != null && snap.avgCost != null ? (currentPrice - snap.avgCost) * snap.quantity : null
+      const profit = rawProfit != null ? rawProfit * fx : null
       rows.push({
         kind: 'holding',
         accountId: acct.id,
@@ -347,7 +349,9 @@ export async function getPortfolioSnapshot(accountTypeCode?: string | null): Pro
         currentPrice,
         currency,
         value,
+        rawValue,
         profit,
+        rawProfit,
         weightPercent: 0
       })
     }
@@ -363,7 +367,9 @@ export async function getPortfolioSnapshot(accountTypeCode?: string | null): Pro
         currentPrice: null,
         currency,
         value: cashBalance * fx,
+        rawValue: cashBalance,
         profit: null,
+        rawProfit: null,
         weightPercent: 0
       })
     } else if (cashBalance !== 0) {
@@ -378,7 +384,9 @@ export async function getPortfolioSnapshot(accountTypeCode?: string | null): Pro
         currentPrice: null,
         currency,
         value: cashBalance * fx,
+        rawValue: cashBalance,
         profit: null,
+        rawProfit: null,
         weightPercent: 0
       })
     }

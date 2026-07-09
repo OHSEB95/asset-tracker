@@ -139,7 +139,9 @@ export interface PortfolioRow {
   currentPrice: number | null
   currency: 'KRW' | 'USD'
   value: number
+  rawValue: number
   profit: number | null
+  rawProfit: number | null
   weightPercent: number
 }
 
@@ -157,6 +159,7 @@ export interface DividendHoldingDetail {
   dividendCycleType: DividendCycleType
   dividendMonths: number[] | null
   dividendPerShare: number
+  currency: 'KRW' | 'USD'
   quantity: number
   annualProjected: number
   receivedThisYear: number

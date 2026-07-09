@@ -457,6 +457,10 @@ tr.tx-row-dividend {
   width: 100px;
 }
 
+.cash-edit-input {
+  width: 120px;
+}
+
 .row-actions {
   display: flex;
   gap: 6px;

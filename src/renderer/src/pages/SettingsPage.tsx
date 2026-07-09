@@ -2,7 +2,7 @@ import { Fragment, useEffect, useState } from 'react'
 import { useAccountsContext } from '../state/AccountsContext'
 import { useAuthContext } from '../state/AuthContext'
 import NumberInput from '../components/NumberInput'
-import type { AccountInput, DividendCycleType, Holding, HoldingInput, PriceSource } from '@shared/types'
+import type { AccountInput, DividendCycleType, Holding, HoldingInput, HoldingSnapshot, PriceSource } from '@shared/types'
 
 const PRICE_SOURCE_LABEL: Record<PriceSource, string> = {
   coingecko: '코인게코 (비트코인 등)',
@@ -20,9 +20,11 @@ function emptyHoldingForm(accountId: number): HoldingInput {
   return { accountId, name: '', priceSymbol: '', priceSource: null }
 }
 
-function formatDividendInfo(h: Holding): string {
+function formatDividendInfo(h: Holding, isForeign: boolean): string {
   if (h.dividendPerShare == null || !h.dividendCycleType) return '-'
-  const amount = `${h.dividendPerShare.toLocaleString()}원`
+  const amount = isForeign
+    ? `$${h.dividendPerShare.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    : `${h.dividendPerShare.toLocaleString()}원`
   const cycle = h.dividendCycleType === 'MONTHLY' ? '월배당' : `${(h.dividendMonths ?? []).join(', ')}월`
   return `${amount} · ${cycle}`
 }
@@ -70,8 +72,10 @@ function MonthPickerPopup({
 }
 
 function HoldingsPanel({ accountId }: { accountId: number }): React.JSX.Element {
-  const { refresh } = useAccountsContext()
+  const { accounts, refresh } = useAccountsContext()
+  const isForeign = accounts.find((a) => a.id === accountId)?.accountTypeCode === 'FOREIGN_STOCK'
   const [holdings, setHoldings] = useState<Holding[]>([])
+  const [snapshots, setSnapshots] = useState<Record<number, HoldingSnapshot>>({})
   const [form, setForm] = useState<HoldingInput>(emptyHoldingForm(accountId))
   const [editingId, setEditingId] = useState<number | null>(null)
   const [dividendPerShareInput, setDividendPerShareInput] = useState('')
@@ -84,7 +88,22 @@ function HoldingsPanel({ accountId }: { accountId: number }): React.JSX.Element 
   async function load(): Promise<void> {
     const list = await window.api.holdings.listForAccount(accountId)
     setHoldings(list)
+    const snapList = await Promise.all(list.map((h) => window.api.holdings.snapshot(h.id)))
+    const map: Record<number, HoldingSnapshot> = {}
+    snapList.forEach((s) => (map[s.holdingId] = s))
+    setSnapshots(map)
   }
+
+  // 전량 매도(또는 잔액 0)해서 더 이상 보유하지 않는 종목은 목록 아래로 자동 정렬한다.
+  function isActiveHolding(h: Holding): boolean {
+    const snap = snapshots[h.id]
+    if (!snap) return true
+    if (snap.quantity != null) return snap.quantity > 0
+    return (snap.currentValuation ?? 0) > 0
+  }
+  const sortedHoldings = [...holdings].sort(
+    (a, b) => Number(!isActiveHolding(a)) - Number(!isActiveHolding(b))
+  )
 
   useEffect(() => {
     load()
@@ -193,7 +212,7 @@ function HoldingsPanel({ accountId }: { accountId: number }): React.JSX.Element 
           />
         </label>
         <label className="field-dividend-amount">
-          1주 배당금
+          1주 배당금{isForeign ? ' ($)' : ' (원)'}
           <NumberInput value={dividendPerShareInput} onChange={setDividendPerShareInput} placeholder="없으면 비워두세요" />
         </label>
         <label className="field-dividend-cycle">
@@ -253,11 +272,11 @@ function HoldingsPanel({ accountId }: { accountId: number }): React.JSX.Element 
             </tr>
           </thead>
           <tbody>
-            {holdings.map((h) => (
-              <tr key={h.id}>
+            {sortedHoldings.map((h) => (
+              <tr key={h.id} className={isActiveHolding(h) ? '' : 'muted'}>
                 <td>{h.name}</td>
                 <td>{h.priceSymbol ?? '-'}</td>
-                <td>{formatDividendInfo(h)}</td>
+                <td>{formatDividendInfo(h, isForeign)}</td>
                 <td className="row-actions">
                   <button type="button" onClick={() => startEdit(h)}>
                     수정

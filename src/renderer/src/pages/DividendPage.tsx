@@ -14,6 +14,13 @@ function formatCycle(cycleType: 'MONTHLY' | 'CUSTOM', months: number[] | null): 
   return cycleType === 'MONTHLY' ? '월배당' : `${(months ?? []).join(', ')}월`
 }
 
+function formatPerShare(value: number, currency: 'KRW' | 'USD'): string {
+  if (currency === 'USD') {
+    return `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  }
+  return `${value.toLocaleString()}원`
+}
+
 function DividendPage(): React.JSX.Element {
   const [year, setYear] = useState(currentYear())
   const [overview, setOverview] = useState<DividendOverview | null>(null)
@@ -144,7 +151,7 @@ function DividendPage(): React.JSX.Element {
                   <td>{h.holdingName}</td>
                   <td>{h.accountTypeLabel}</td>
                   <td>{formatCycle(h.dividendCycleType, h.dividendMonths)}</td>
-                  <td>{h.dividendPerShare.toLocaleString()}</td>
+                  <td>{formatPerShare(h.dividendPerShare, h.currency)}</td>
                   <td>{h.quantity.toLocaleString()}</td>
                   <td>{formatKrw(h.annualProjected)}</td>
                   <td>{formatKrw(h.receivedThisYear)}</td>

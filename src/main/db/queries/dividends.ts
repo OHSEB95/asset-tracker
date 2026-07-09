@@ -86,6 +86,7 @@ export async function getDividendOverview(
       dividendCycleType: h.dividend_cycle_type,
       dividendMonths,
       dividendPerShare: h.dividend_per_share,
+      currency: h.account_type_code === 'FOREIGN_STOCK' ? 'USD' : 'KRW',
       quantity,
       annualProjected,
       receivedThisYear

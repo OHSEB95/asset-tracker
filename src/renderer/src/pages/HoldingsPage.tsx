@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useAccountsContext } from '../state/AccountsContext'
-import type { PortfolioSnapshot } from '@shared/types'
+import type { PortfolioSnapshot, PortfolioRow, TransactionInput } from '@shared/types'
 import { typeRowClass } from '../utils/accountTypeStyle'
 
 function formatMoney(value: number | null, currency: 'KRW' | 'USD'): string {
@@ -15,9 +15,21 @@ function formatKrw(value: number): string {
   return `${Math.round(value).toLocaleString()}원`
 }
 
+// 가치/손익은 항상 원화로 보여주되, 해외주식은 원래 통화(달러) 금액도 괄호로 함께 보여준다.
+function formatWithRaw(value: number, currency: 'KRW' | 'USD', rawValue: number): string {
+  const krw = formatKrw(value)
+  if (currency !== 'USD') return krw
+  return `${krw} (${formatMoney(rawValue, 'USD')})`
+}
+
 function currentYearMonth(): string {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
+function todayDate(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 function formatUpdatedAt(iso: string): string {
@@ -32,6 +44,11 @@ function formatUpdatedAt(iso: string): string {
 function HoldingsPage(): React.JSX.Element {
   const { holdings } = useAccountsContext()
   const [portfolio, setPortfolio] = useState<PortfolioSnapshot | null>(null)
+  const [showCashOnly, setShowCashOnly] = useState(false)
+  const [editingAccountId, setEditingAccountId] = useState<number | null>(null)
+  const [cashEditValue, setCashEditValue] = useState('')
+  const [cashSaving, setCashSaving] = useState(false)
+  const [cashEditError, setCashEditError] = useState<string | null>(null)
 
   async function refresh(): Promise<void> {
     const data = await window.api.dashboard.getPortfolioSnapshot(null)
@@ -64,11 +81,115 @@ function HoldingsPage(): React.JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [holdings])
 
+  function startEditCash(row: PortfolioRow): void {
+    setEditingAccountId(row.accountId)
+    setCashEditValue(
+      row.currency === 'USD' ? row.rawValue.toFixed(2) : String(Math.round(row.rawValue))
+    )
+    setCashEditError(null)
+  }
+
+  function cancelEditCash(): void {
+    setEditingAccountId(null)
+    setCashEditError(null)
+  }
+
+  async function saveEditCash(row: PortfolioRow): Promise<void> {
+    const newValue = parseFloat(cashEditValue)
+    if (!Number.isFinite(newValue)) {
+      setCashEditError('숫자를 입력해주세요.')
+      return
+    }
+    const delta = newValue - row.rawValue
+    if (Math.abs(delta) < 0.005) {
+      setEditingAccountId(null)
+      return
+    }
+    setCashSaving(true)
+    setCashEditError(null)
+    try {
+      const input: TransactionInput = {
+        accountId: row.accountId,
+        type: delta > 0 ? 'ADJUST' : 'WITHDRAWAL',
+        date: todayDate(),
+        amount: Math.abs(delta),
+        note: '예수금 잔액 수정 (자산현황)'
+      }
+      const result = await window.api.transactions.create(input)
+      if ('error' in result) {
+        setCashEditError(result.error)
+        return
+      }
+      setEditingAccountId(null)
+      await refresh()
+    } finally {
+      setCashSaving(false)
+    }
+  }
+
+  const cashRows = portfolio ? portfolio.rows.filter((r) => r.kind === 'cash') : []
+
   return (
     <div className="page">
       <section className="card">
-        <h2>자산현황</h2>
-        {!portfolio || portfolio.rows.length === 0 ? (
+        <div className="section-header">
+          <h2>자산현황</h2>
+          <button type="button" className="ghost-button detail-button" onClick={() => setShowCashOnly((v) => !v)}>
+            {showCashOnly ? '전체 보기' : '예수금'}
+          </button>
+        </div>
+
+        {showCashOnly ? (
+          cashRows.length === 0 ? (
+            <p className="muted">예수금이 있는 계좌가 없습니다.</p>
+          ) : (
+            <table className="data-table compact-table">
+              <thead>
+                <tr>
+                  <th>구분</th>
+                  <th>계좌</th>
+                  <th>잔액</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {cashRows.map((r) => (
+                  <tr key={r.accountId} className={typeRowClass(r.accountTypeLabel)}>
+                    <td>{r.accountTypeLabel}</td>
+                    <td>{r.label}</td>
+                    <td>
+                      {editingAccountId === r.accountId ? (
+                        <input
+                          value={cashEditValue}
+                          onChange={(e) => setCashEditValue(e.target.value)}
+                          className="cash-edit-input"
+                        />
+                      ) : (
+                        formatMoney(r.rawValue, r.currency)
+                      )}
+                    </td>
+                    <td className="row-actions">
+                      {editingAccountId === r.accountId ? (
+                        <>
+                          <button type="button" onClick={() => saveEditCash(r)} disabled={cashSaving}>
+                            {cashSaving ? '저장 중…' : '저장'}
+                          </button>
+                          <button type="button" onClick={cancelEditCash} disabled={cashSaving}>
+                            취소
+                          </button>
+                        </>
+                      ) : (
+                        <button type="button" onClick={() => startEditCash(r)}>
+                          수정
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )
+        ) : !portfolio || portfolio.rows.length === 0 ? (
           <p className="muted">등록된 계좌/보유종목이 없습니다.</p>
         ) : (
           <table className="data-table compact-table holdings-table">
@@ -92,9 +213,9 @@ function HoldingsPage(): React.JSX.Element {
                   <td>{r.quantity != null ? r.quantity.toLocaleString() : '-'}</td>
                   <td>{r.avgCost != null ? formatMoney(r.avgCost, r.currency) : '-'}</td>
                   <td className="price-col-narrow">{r.currentPrice != null ? formatMoney(r.currentPrice, r.currency) : '-'}</td>
-                  <td className="col-value value-cell">{formatKrw(r.value)}</td>
+                  <td className="col-value value-cell">{formatWithRaw(r.value, r.currency, r.rawValue)}</td>
                   <td className={r.profit == null ? '' : r.profit >= 0 ? 'gain' : 'loss'}>
-                    {r.profit != null ? formatKrw(r.profit) : '-'}
+                    {r.profit != null ? formatWithRaw(r.profit, r.currency, r.rawProfit ?? 0) : '-'}
                   </td>
                   <td>{r.weightPercent.toFixed(2)}%</td>
                 </tr>
@@ -112,6 +233,7 @@ function HoldingsPage(): React.JSX.Element {
             </tfoot>
           </table>
         )}
+        {cashEditError && <p className="error-text">{cashEditError}</p>}
         {portfolio?.pricesUpdatedAt && (
           <p className="prices-updated-at">현재가 마지막 갱신: {formatUpdatedAt(portfolio.pricesUpdatedAt)}</p>
         )}
