@@ -3,6 +3,8 @@ import { useAccountsContext } from '../state/AccountsContext'
 import { useExchangeRateContext } from '../state/ExchangeRateContext'
 import NumberInput from '../components/NumberInput'
 import type {
+  Holding,
+  HoldingSnapshot,
   Transaction,
   TransactionInput,
   TransactionListFilter,
@@ -46,6 +48,16 @@ function formatMoney(value: number | null, currency: 'KRW' | 'USD'): string {
     return `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   }
   return `${Math.round(value).toLocaleString()}원`
+}
+
+function currentMonthNum(): number {
+  return new Date().getMonth() + 1
+}
+
+function isPayoutThisMonth(h: Holding): boolean {
+  if (h.dividendPerShare == null || !h.dividendCycleType) return false
+  if (h.dividendCycleType === 'MONTHLY') return true
+  return (h.dividendMonths ?? []).includes(currentMonthNum())
 }
 
 function TransactionEntryPage(): React.JSX.Element {
@@ -109,6 +121,21 @@ function TransactionEntryPage(): React.JSX.Element {
       setCloseBalance(null)
     }
   }, [isSavingsAccount, type, holdingId])
+
+  // 매수/매도/정리로 보유수량이 바뀌는 종목이 이번 달 배당 예정 종목이면, 배당락 관련
+  // 안내를 보여주기 위해 현재(거래 반영 전) 보유수량을 조회해둔다.
+  const [dividendCheckSnapshot, setDividendCheckSnapshot] = useState<HoldingSnapshot | null>(null)
+  useEffect(() => {
+    if (
+      !isSavingsAccount &&
+      holdingId != null &&
+      (type === 'BUY' || type === 'SELL' || (type === 'ADJUST' && adjustTarget === 'holding'))
+    ) {
+      window.api.holdings.snapshot(holdingId).then(setDividendCheckSnapshot)
+    } else {
+      setDividendCheckSnapshot(null)
+    }
+  }, [isSavingsAccount, type, adjustTarget, holdingId])
 
   function buildFilter(): TransactionListFilter | null {
     const dateRange = { from: `${historyYearMonth}-01`, to: `${historyYearMonth}-31` }
@@ -335,6 +362,33 @@ function TransactionEntryPage(): React.JSX.Element {
     return null
   }
 
+  // 매수/매도/정리로 보유수량이 바뀌는 종목이 이번 달 배당 예정 종목이면, 예상 배당액이
+  // 어떻게 달라질 수 있는지 참고용으로 보여준다(실제 지급 여부는 배당락일 기준이라 별도 확인 필요).
+  function renderDividendImpactHint(): React.JSX.Element | null {
+    if (isSavingsAccount || holdingId == null || dividendCheckSnapshot == null) return null
+    const holding = holdings.find((h) => h.id === holdingId)
+    if (!holding || !isPayoutThisMonth(holding) || holding.dividendPerShare == null) return null
+    const qtyInput = parseFloat(quantity)
+    if (!qtyInput || qtyInput <= 0) return null
+
+    const beforeQty = dividendCheckSnapshot.quantity ?? 0
+    const afterQty = type === 'SELL' ? Math.max(0, beforeQty - qtyInput) : beforeQty + qtyInput
+    if (beforeQty === afterQty) return null
+
+    const fx = isForeignAccount ? (rate ?? 1) : 1
+    const beforeAmt = beforeQty * holding.dividendPerShare * fx
+    const afterAmt = afterQty * holding.dividendPerShare * fx
+
+    return (
+      <p className="field-hint dividend-impact-hint">
+        ⚠ {holding.name}은(는) 이번 달 배당 예정 종목이에요. 이 거래로 보유수량이{' '}
+        {beforeQty.toLocaleString()}주 → {afterQty.toLocaleString()}주로 바뀌면 이번 달 예상 배당액이 약{' '}
+        {formatMoney(beforeAmt, 'KRW')} → {formatMoney(afterAmt, 'KRW')}로 달라질 수 있어요. 실제 지급
+        여부는 배당락일 기준 보유수량으로 정해지니, 배당락일 전후 거래라면 별도로 확인해주세요.
+      </p>
+    )
+  }
+
   const visibleTypeCodes = isSavingsAccount ? SAVINGS_TYPE_CODES : STOCK_TYPE_CODES
   const hideStockColumns = isSavingsAccount
   const productLabel = isSavingsAccount ? '상품명' : '종목'
@@ -554,6 +608,7 @@ function TransactionEntryPage(): React.JSX.Element {
             </div>
 
             {renderHint()}
+            {renderDividendImpactHint()}
           </form>
         )}
         {formError && <p className="error-text">{formError}</p>}
