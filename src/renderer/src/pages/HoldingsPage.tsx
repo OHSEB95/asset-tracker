@@ -15,11 +15,8 @@ function formatKrw(value: number): string {
   return `${Math.round(value).toLocaleString()}원`
 }
 
-// 가치/손익은 항상 원화로 보여주되, 해외주식은 원래 통화(달러) 금액도 괄호로 함께 보여준다.
-function formatWithRaw(value: number, currency: 'KRW' | 'USD', rawValue: number): string {
-  const krw = formatKrw(value)
-  if (currency !== 'USD') return krw
-  return `${krw} (${formatMoney(rawValue, 'USD')})`
+function formatUsdValue(currency: 'KRW' | 'USD', rawValue: number): string {
+  return currency === 'USD' ? formatMoney(rawValue, 'USD') : '-'
 }
 
 function currentYearMonth(): string {
@@ -197,10 +194,11 @@ function HoldingsPage(): React.JSX.Element {
               <tr>
                 <th className="col-type">구분</th>
                 <th className="col-product">종목</th>
-                <th>보유수량</th>
+                <th className="col-qty">보유수량</th>
                 <th>평단가</th>
                 <th className="price-col-narrow">현재가</th>
                 <th className="col-value">가치</th>
+                <th className="col-value">달러가치</th>
                 <th>손익</th>
                 <th>비중</th>
               </tr>
@@ -210,12 +208,13 @@ function HoldingsPage(): React.JSX.Element {
                 <tr key={idx} className={typeRowClass(r.accountTypeLabel)}>
                   <td className="col-type">{r.accountTypeLabel}</td>
                   <td className="col-product">{r.label}</td>
-                  <td>{r.quantity != null ? r.quantity.toLocaleString() : '-'}</td>
+                  <td className="col-qty">{r.quantity != null ? r.quantity.toLocaleString() : '-'}</td>
                   <td>{r.avgCost != null ? formatMoney(r.avgCost, r.currency) : '-'}</td>
                   <td className="price-col-narrow">{r.currentPrice != null ? formatMoney(r.currentPrice, r.currency) : '-'}</td>
-                  <td className="col-value value-cell">{formatWithRaw(r.value, r.currency, r.rawValue)}</td>
+                  <td className="col-value value-cell">{formatKrw(r.value)}</td>
+                  <td className="col-value">{formatUsdValue(r.currency, r.rawValue)}</td>
                   <td className={r.profit == null ? '' : r.profit >= 0 ? 'gain' : 'loss'}>
-                    {r.profit != null ? formatWithRaw(r.profit, r.currency, r.rawProfit ?? 0) : '-'}
+                    {r.profit != null ? formatKrw(r.profit) : '-'}
                   </td>
                   <td>{r.weightPercent.toFixed(2)}%</td>
                 </tr>
@@ -225,6 +224,7 @@ function HoldingsPage(): React.JSX.Element {
               <tr>
                 <td colSpan={5}>합계</td>
                 <td className="value-cell">{formatKrw(portfolio.totalValue)}</td>
+                <td></td>
                 <td className={portfolio.totalProfit >= 0 ? 'gain' : 'loss'}>
                   {formatKrw(portfolio.totalProfit)}
                 </td>

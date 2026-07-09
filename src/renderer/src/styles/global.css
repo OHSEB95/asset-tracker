@@ -368,6 +368,10 @@ tr.tx-row-dividend {
   width: 22%;
 }
 
+.col-qty {
+  width: 7%;
+}
+
 .col-value {
   width: 13%;
 }
