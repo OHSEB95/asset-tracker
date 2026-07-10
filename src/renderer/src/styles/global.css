@@ -260,6 +260,18 @@ button:disabled {
   padding: 5px 10px;
 }
 
+.payout-month-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.payout-month-label {
+  min-width: 80px;
+  text-align: center;
+  font-weight: 600;
+}
+
 .section-header {
   display: flex;
   align-items: center;

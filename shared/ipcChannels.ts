@@ -30,6 +30,7 @@ export const IPC = {
   DASHBOARD_GET_PORTFOLIO_SNAPSHOT: 'dashboard:getPortfolioSnapshot',
 
   DIVIDENDS_GET_OVERVIEW: 'dividends:getOverview',
+  DIVIDENDS_GET_PAYOUTS_FOR_MONTH: 'dividends:getPayoutsForMonth',
 
   AUTH_LOGIN: 'auth:login',
   AUTH_REGISTER: 'auth:register',

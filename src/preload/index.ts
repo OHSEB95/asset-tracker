@@ -62,7 +62,9 @@ const api = {
   },
   dividends: {
     getOverview: (year: number, accountTypeCode?: string | null) =>
-      ipcRenderer.invoke(IPC.DIVIDENDS_GET_OVERVIEW, year, accountTypeCode)
+      ipcRenderer.invoke(IPC.DIVIDENDS_GET_OVERVIEW, year, accountTypeCode),
+    getPayoutsForMonth: (month: string, accountTypeCode?: string | null) =>
+      ipcRenderer.invoke(IPC.DIVIDENDS_GET_PAYOUTS_FOR_MONTH, month, accountTypeCode)
   },
   auth: {
     login: (email: string, password: string, rememberEmail: boolean, autoLogin: boolean) =>

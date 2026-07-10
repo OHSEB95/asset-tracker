@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useAccountsContext } from '../state/AccountsContext'
-import type { DividendOverview, Holding, HoldingInput } from '@shared/types'
+import type { DividendOverview, DividendPayout, Holding, HoldingInput } from '@shared/types'
 import DividendChart from '../components/charts/DividendChart'
 
 function currentYear(): number {
@@ -37,6 +37,16 @@ function prevMonth(yearMonth: string): string {
   return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`
 }
 
+function nextMonth(yearMonth: string): string {
+  const [y, m] = yearMonth.split('-').map(Number)
+  return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`
+}
+
+function monthLabel(yearMonth: string): string {
+  const [y, m] = yearMonth.split('-').map(Number)
+  return `${y}년 ${m}월`
+}
+
 // "이번달 배당 예정 종목" 표는 배당일(지급)이 이번 달인 종목들이므로, 배당락일은 그 지급을
 // 결정한 시점 - 배당일이 배당락일보다 이르면(예: 배당락 29일, 배당일 2일) 배당락은 전달에
 // 있었던 것으로 본다.
@@ -54,6 +64,11 @@ function DividendPage(): React.JSX.Element {
   const [payDayInput, setPayDayInput] = useState('')
   const [payDaySaving, setPayDaySaving] = useState(false)
 
+  const [payoutMonth, setPayoutMonth] = useState(currentYearMonth())
+  const [monthPayouts, setMonthPayouts] = useState<DividendPayout[]>([])
+  const [monthPayoutsLoading, setMonthPayoutsLoading] = useState(true)
+  const [showPayoutMonthPicker, setShowPayoutMonthPicker] = useState(false)
+
   useEffect(() => {
     let cancelled = false
     setLoading(true)
@@ -70,12 +85,28 @@ function DividendPage(): React.JSX.Element {
     }
   }, [year])
 
+  useEffect(() => {
+    let cancelled = false
+    setMonthPayoutsLoading(true)
+    window.api.dividends
+      .getPayoutsForMonth(payoutMonth, null)
+      .then((data) => {
+        if (!cancelled) setMonthPayouts(data)
+      })
+      .finally(() => {
+        if (!cancelled) setMonthPayoutsLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [payoutMonth])
+
   const isCurrentYear = year === currentYear()
   const totalLabel = isCurrentYear ? '올해 예상 총 배당' : `${year}년 총 배당`
 
   const yearOptions = [currentYear(), currentYear() - 1, currentYear() - 2]
 
-  const thisMonthPayoutsTotal = overview?.thisMonthPayouts.reduce((sum, p) => sum + p.amount, 0) ?? 0
+  const monthPayoutsTotal = monthPayouts.reduce((sum, p) => sum + p.amount, 0)
 
   function startEditPayDay(holding: Holding): void {
     setEditingPayDayId(holding.id)
@@ -105,6 +136,8 @@ function DividendPage(): React.JSX.Element {
       await window.api.holdings.update(holding.id, input)
       setEditingPayDayId(null)
       await refresh()
+      const data = await window.api.dividends.getPayoutsForMonth(payoutMonth, null)
+      setMonthPayouts(data)
     } finally {
       setPayDaySaving(false)
     }
@@ -148,86 +181,118 @@ function DividendPage(): React.JSX.Element {
         )}
       </section>
 
-      {!loading && isCurrentYear && overview && (
-        <section className="card">
-          <h3>이번달 배당 예정 종목</h3>
-          {overview.thisMonthPayouts.length === 0 ? (
-            <p className="muted">이번달 배당 예정 종목이 없습니다.</p>
-          ) : (
-            <table className="data-table compact-table payout-total-table">
-              <thead>
-                <tr>
-                  <th>종목</th>
-                  <th>배당락일</th>
-                  <th>배당일 (예상)</th>
-                  <th>예상 배당액</th>
-                </tr>
-              </thead>
-              <tbody>
-                {overview.thisMonthPayouts.map((p) => {
-                  const holding = holdings.find((h) => h.id === p.holdingId)
-                  const nowMonth = currentYearMonth()
-                  return (
-                    <tr key={p.holdingId}>
-                      <td>{p.holdingName}</td>
-                      <td>
-                        {holding?.dividendExDay != null
-                          ? formatDayInMonth(
-                              holding.dividendExDay,
-                              exMonthForThisPayment(holding.dividendExDay, holding.dividendPayDay, nowMonth)
-                            )
-                          : '-'}
-                      </td>
-                      <td>
-                        {editingPayDayId === p.holdingId ? (
-                          <>
-                            <input
-                              type="number"
-                              min={1}
-                              max={31}
-                              value={payDayInput}
-                              onChange={(e) => setPayDayInput(e.target.value)}
-                              className="pay-day-input"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => holding && savePayDay(holding)}
-                              disabled={payDaySaving}
-                            >
-                              저장
+      <section className="card">
+        <div className="section-header payout-month-header">
+          <h3>배당 예정 종목</h3>
+          <div className="payout-month-nav">
+            <button type="button" className="ghost-button" onClick={() => setPayoutMonth((m) => prevMonth(m))}>
+              ◀
+            </button>
+            <button type="button" className="ghost-button payout-month-label" onClick={() => setShowPayoutMonthPicker(true)}>
+              {monthLabel(payoutMonth)}
+            </button>
+            <button type="button" className="ghost-button" onClick={() => setPayoutMonth((m) => nextMonth(m))}>
+              ▶
+            </button>
+          </div>
+        </div>
+
+        {showPayoutMonthPicker && (
+          <div className="popup-backdrop" onClick={() => setShowPayoutMonthPicker(false)}>
+            <div className="popup-panel" onClick={(e) => e.stopPropagation()}>
+              <h4>이동할 달 선택</h4>
+              <input
+                type="month"
+                value={payoutMonth}
+                onChange={(e) => {
+                  setPayoutMonth(e.target.value)
+                  setShowPayoutMonthPicker(false)
+                }}
+              />
+              <div className="form-actions">
+                <button type="button" className="ghost-button" onClick={() => setShowPayoutMonthPicker(false)}>
+                  닫기
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {!monthPayoutsLoading && monthPayouts.length === 0 ? (
+          <p className="muted">이 달에는 배당 예정 종목이 없습니다.</p>
+        ) : (
+          <table className="data-table compact-table payout-total-table">
+            <thead>
+              <tr>
+                <th>종목</th>
+                <th>배당락일</th>
+                <th>배당일 (예상)</th>
+                <th>예상 배당액</th>
+              </tr>
+            </thead>
+            <tbody>
+              {monthPayouts.map((p) => {
+                const holding = holdings.find((h) => h.id === p.holdingId)
+                return (
+                  <tr key={p.holdingId}>
+                    <td>{p.holdingName}</td>
+                    <td>
+                      {holding?.dividendExDay != null
+                        ? formatDayInMonth(
+                            holding.dividendExDay,
+                            exMonthForThisPayment(holding.dividendExDay, holding.dividendPayDay, payoutMonth)
+                          )
+                        : '-'}
+                    </td>
+                    <td>
+                      {editingPayDayId === p.holdingId ? (
+                        <>
+                          <input
+                            type="number"
+                            min={1}
+                            max={31}
+                            value={payDayInput}
+                            onChange={(e) => setPayDayInput(e.target.value)}
+                            className="pay-day-input"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => holding && savePayDay(holding)}
+                            disabled={payDaySaving}
+                          >
+                            저장
+                          </button>
+                          <button type="button" onClick={cancelEditPayDay} disabled={payDaySaving}>
+                            취소
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          {holding?.dividendPayDay != null
+                            ? formatDayInMonth(holding.dividendPayDay, payoutMonth)
+                            : '-'}
+                          {holding && (
+                            <button type="button" className="ghost-button" onClick={() => startEditPayDay(holding)}>
+                              수정
                             </button>
-                            <button type="button" onClick={cancelEditPayDay} disabled={payDaySaving}>
-                              취소
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            {holding?.dividendPayDay != null
-                              ? formatDayInMonth(holding.dividendPayDay, nowMonth)
-                              : '-'}
-                            {holding && (
-                              <button type="button" className="ghost-button" onClick={() => startEditPayDay(holding)}>
-                                수정
-                              </button>
-                            )}
-                          </>
-                        )}
-                      </td>
-                      <td>{formatKrw(p.amount)}</td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-              <tfoot>
-                <tr>
-                  <td colSpan={3}>합계</td>
-                  <td>{formatKrw(thisMonthPayoutsTotal)}</td>
-                </tr>
-              </tfoot>
-            </table>
-          )}
-        </section>
-      )}
+                          )}
+                        </>
+                      )}
+                    </td>
+                    <td>{formatKrw(p.amount)}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colSpan={3}>합계</td>
+                <td>{formatKrw(monthPayoutsTotal)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        )}
+      </section>
 
       {!loading && overview && overview.monthlyRows.length > 0 && (
         <section className="card chart-card dividend-chart-card">

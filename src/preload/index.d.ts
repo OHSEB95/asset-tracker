@@ -8,6 +8,7 @@ import type {
   ChangePasswordResult,
   DashboardFilter,
   DividendOverview,
+  DividendPayout,
   ExchangeRateInfo,
   Holding,
   HoldingInput,
@@ -68,6 +69,7 @@ export interface Api {
   }
   dividends: {
     getOverview(year: number, accountTypeCode?: string | null): Promise<DividendOverview>
+    getPayoutsForMonth(month: string, accountTypeCode?: string | null): Promise<DividendPayout[]>
   }
   auth: {
     login(email: string, password: string, rememberEmail: boolean, autoLogin: boolean): Promise<AuthResult>

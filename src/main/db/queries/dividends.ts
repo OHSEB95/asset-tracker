@@ -9,6 +9,76 @@ function currentYearMonth(): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
 }
 
+interface DividendHoldingRow {
+  id: number
+  name: string
+  dividend_per_share: number
+  dividend_cycle_type: 'MONTHLY' | 'CUSTOM'
+  dividend_months: string | null
+  dividend_ex_day: number | null
+  dividend_pay_day: number | null
+  account_type_code: string
+  label_ko: string
+}
+
+function queryDividendHoldingRows(accountTypeCode?: string | null): DividendHoldingRow[] {
+  const db = getDatabase()
+  const conditions = ['h.is_archived = 0', 'a.is_archived = 0', 'h.dividend_per_share IS NOT NULL']
+  const params: unknown[] = []
+  if (accountTypeCode) {
+    conditions.push('a.account_type_code = ?')
+    params.push(accountTypeCode)
+  }
+  return db
+    .prepare(
+      `SELECT h.id, h.name, h.dividend_per_share, h.dividend_cycle_type, h.dividend_months,
+              h.dividend_ex_day, h.dividend_pay_day, a.account_type_code, t.label_ko
+       FROM holdings h
+       JOIN accounts a ON a.id = h.account_id
+       JOIN account_types t ON t.code = a.account_type_code
+       WHERE ${conditions.join(' AND ')}`
+    )
+    .all(...params) as DividendHoldingRow[]
+}
+
+/** 특정 지급월(payMonth)에 배당이 예정된 종목과 예상 배당액을 계산한다. */
+export async function getPayoutsForMonth(
+  payMonth: string,
+  accountTypeCode?: string | null
+): Promise<DividendPayout[]> {
+  const holdingRows = queryDividendHoldingRows(accountTypeCode)
+  const { rate } = await getUsdKrwRate()
+  const monthNum = Number(payMonth.slice(5, 7))
+
+  const payouts: DividendPayout[] = []
+  for (const h of holdingRows) {
+    const dividendMonths = h.dividend_months ? h.dividend_months.split(',').map(Number) : null
+    const isPayoutMonth = h.dividend_cycle_type === 'MONTHLY' || (dividendMonths ?? []).includes(monthNum)
+    if (!isPayoutMonth) continue
+
+    const fx = h.account_type_code === 'FOREIGN_STOCK' ? rate : 1
+    const snapshot = getHoldingSnapshot(h.id)
+    const quantity = snapshot.quantity ?? 0
+    const eligibleQty =
+      h.dividend_ex_day != null
+        ? getHoldingQuantityAsOf(
+            h.id,
+            exDivDateForMonth(exMonthForPayment(payMonth, h.dividend_ex_day, h.dividend_pay_day), h.dividend_ex_day)
+          )
+        : quantity
+    if (eligibleQty <= 0) continue
+
+    payouts.push({
+      holdingId: h.id,
+      holdingName: h.name,
+      amount: eligibleQty * h.dividend_per_share * fx
+    })
+  }
+
+  payouts.sort((a, b) => b.amount - a.amount)
+  return payouts
+}
+
 export async function getDividendOverview(
   year: number,
   accountTypeCode?: string | null
@@ -33,33 +103,7 @@ export async function getDividendOverview(
   const thisMonthProjected = thisMonthRow?.projectedDividends ?? 0
 
   const { rate } = await getUsdKrwRate()
-
-  const conditions = ['h.is_archived = 0', 'a.is_archived = 0', 'h.dividend_per_share IS NOT NULL']
-  const params: unknown[] = []
-  if (accountTypeCode) {
-    conditions.push('a.account_type_code = ?')
-    params.push(accountTypeCode)
-  }
-  const holdingRows = db
-    .prepare(
-      `SELECT h.id, h.name, h.dividend_per_share, h.dividend_cycle_type, h.dividend_months,
-              h.dividend_ex_day, h.dividend_pay_day, a.account_type_code, t.label_ko
-       FROM holdings h
-       JOIN accounts a ON a.id = h.account_id
-       JOIN account_types t ON t.code = a.account_type_code
-       WHERE ${conditions.join(' AND ')}`
-    )
-    .all(...params) as Array<{
-    id: number
-    name: string
-    dividend_per_share: number
-    dividend_cycle_type: 'MONTHLY' | 'CUSTOM'
-    dividend_months: string | null
-    dividend_ex_day: number | null
-    dividend_pay_day: number | null
-    account_type_code: string
-    label_ko: string
-  }>
+  const holdingRows = queryDividendHoldingRows(accountTypeCode)
 
   const receivedStmt = db.prepare(
     `SELECT COALESCE(SUM(amount), 0) AS total FROM transactions
@@ -67,7 +111,6 @@ export async function getDividendOverview(
   )
 
   const holdings: DividendHoldingDetail[] = []
-  const thisMonthPayouts: DividendPayout[] = []
 
   for (const h of holdingRows) {
     const fx = h.account_type_code === 'FOREIGN_STOCK' ? rate : 1
@@ -107,33 +150,11 @@ export async function getDividendOverview(
       annualProjected,
       receivedThisYear
     })
-
-    const nowMonthNum = Number(nowMonth.slice(5, 7))
-    const isPayoutThisMonth =
-      h.dividend_cycle_type === 'MONTHLY' || (dividendMonths ?? []).includes(nowMonthNum)
-    if (isPayoutThisMonth) {
-      const eligibleQtyThisMonth =
-        h.dividend_ex_day != null
-          ? getHoldingQuantityAsOf(
-              h.id,
-              exDivDateForMonth(
-                exMonthForPayment(nowMonth, h.dividend_ex_day, h.dividend_pay_day),
-                h.dividend_ex_day
-              )
-            )
-          : quantity
-      if (eligibleQtyThisMonth > 0) {
-        thisMonthPayouts.push({
-          holdingId: h.id,
-          holdingName: h.name,
-          amount: eligibleQtyThisMonth * h.dividend_per_share * fx
-        })
-      }
-    }
   }
 
   holdings.sort((a, b) => b.annualProjected - a.annualProjected)
-  thisMonthPayouts.sort((a, b) => b.amount - a.amount)
+
+  const thisMonthPayouts = await getPayoutsForMonth(nowMonth, accountTypeCode)
 
   return {
     year,
