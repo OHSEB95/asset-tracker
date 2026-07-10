@@ -27,20 +27,22 @@ function formatPerShare(value: number, currency: 'KRW' | 'USD'): string {
   return `${value.toLocaleString()}원`
 }
 
-// 배당락일/배당일은 "이번 달 기준 며칠"만 저장하므로, 화면엔 이번 달(또는 배당일이 배당락일보다
-// 앞이면 다음 달) 며칠인지로 풀어서 보여준다.
 function formatDayInMonth(day: number, baseMonth: string): string {
   const m = Number(baseMonth.slice(5, 7))
   return `${m}월 ${day}일`
 }
 
-function formatPayDay(payDay: number, exDay: number | null, baseMonth: string): string {
-  const m = Number(baseMonth.slice(5, 7))
-  if (exDay != null && payDay < exDay) {
-    const nextMonth = m === 12 ? 1 : m + 1
-    return `${nextMonth}월 ${payDay}일`
-  }
-  return `${m}월 ${payDay}일`
+function prevMonth(yearMonth: string): string {
+  const [y, m] = yearMonth.split('-').map(Number)
+  return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`
+}
+
+// "이번달 배당 예정 종목" 표는 배당일(지급)이 이번 달인 종목들이므로, 배당락일은 그 지급을
+// 결정한 시점 - 배당일이 배당락일보다 이르면(예: 배당락 29일, 배당일 2일) 배당락은 전달에
+// 있었던 것으로 본다.
+function exMonthForThisPayment(exDay: number, payDay: number | null, nowMonth: string): string {
+  if (payDay != null && payDay < exDay) return prevMonth(nowMonth)
+  return nowMonth
 }
 
 function DividendPage(): React.JSX.Element {
@@ -168,7 +170,14 @@ function DividendPage(): React.JSX.Element {
                   return (
                     <tr key={p.holdingId}>
                       <td>{p.holdingName}</td>
-                      <td>{holding?.dividendExDay != null ? formatDayInMonth(holding.dividendExDay, nowMonth) : '-'}</td>
+                      <td>
+                        {holding?.dividendExDay != null
+                          ? formatDayInMonth(
+                              holding.dividendExDay,
+                              exMonthForThisPayment(holding.dividendExDay, holding.dividendPayDay, nowMonth)
+                            )
+                          : '-'}
+                      </td>
                       <td>
                         {editingPayDayId === p.holdingId ? (
                           <>
@@ -194,7 +203,7 @@ function DividendPage(): React.JSX.Element {
                         ) : (
                           <>
                             {holding?.dividendPayDay != null
-                              ? formatPayDay(holding.dividendPayDay, holding.dividendExDay, nowMonth)
+                              ? formatDayInMonth(holding.dividendPayDay, nowMonth)
                               : '-'}
                             {holding && (
                               <button type="button" className="ghost-button" onClick={() => startEditPayDay(holding)}>

@@ -20,6 +20,22 @@ export function exDivDateForMonth(yearMonth: string, day: number): string {
   return `${yearMonth}-${String(clampedDay).padStart(2, '0')}`
 }
 
+function prevMonth(yearMonth: string): string {
+  const [y, m] = yearMonth.split('-').map(Number)
+  return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`
+}
+
+/**
+ * 배당월(=배당이 지급되는 달) 기준으로, 그 지급을 결정하는 배당락일이 속한 달을 구한다.
+ * 배당일(payDay)이 배당락일(exDay)보다 이르면 배당락은 전달에 있었던 것으로 본다
+ * (예: 배당락일 29일, 배당일 2일 -> 7월 지급이면 배당락은 6월 29일).
+ * payDay 정보가 없으면 같은 달로 취급한다(하위호환).
+ */
+export function exMonthForPayment(paymentMonth: string, exDay: number, payDay: number | null): string {
+  if (payDay != null && payDay < exDay) return prevMonth(paymentMonth)
+  return paymentMonth
+}
+
 function rowToAccount(row: any): Account {
   return {
     id: row.id,
@@ -160,7 +176,8 @@ export async function getMonthlySummary(filter: DashboardFilter): Promise<Monthl
     dividendMonths: row.dividend_months
       ? (row.dividend_months as string).split(',').map((m: string) => Number(m))
       : null,
-    dividendExDay: row.dividend_ex_day as number | null
+    dividendExDay: row.dividend_ex_day as number | null,
+    dividendPayDay: row.dividend_pay_day as number | null
   }))
 
   const snapshotRows = db
@@ -262,9 +279,16 @@ export async function getMonthlySummary(filter: DashboardFilter): Promise<Monthl
 
       // 배당락일이 설정돼 있으면 그 시점 기준 보유수량으로, 없으면 현재 보유수량으로 계산한다.
       // 배당락일 이후에 매수/정리한 수량은 이번 배당락일에는 반영되지 않고 다음 배당락일부터 반영됨.
+      // 배당일(payDay)이 배당락일(exDay)보다 이르면 배당락은 전달에 있었던 것으로 본다.
       const eligibleQty =
         holding.dividendExDay != null
-          ? getHoldingQuantityAsOf(holding.id, exDivDateForMonth(month, holding.dividendExDay))
+          ? getHoldingQuantityAsOf(
+              holding.id,
+              exDivDateForMonth(
+                exMonthForPayment(month, holding.dividendExDay, holding.dividendPayDay),
+                holding.dividendExDay
+              )
+            )
           : snapshot.quantity
       if (eligibleQty <= 0) continue
       const perPayout = eligibleQty * holding.dividendPerShare * fx

@@ -1,7 +1,7 @@
 import { getDatabase } from '../index'
 import type { DividendHoldingDetail, DividendOverview, DividendPayout } from '@shared/types'
 import { getHoldingSnapshot, getHoldingQuantityAsOf } from './holdings'
-import { getMonthlySummary, exDivDateForMonth } from './dashboard'
+import { getMonthlySummary, exDivDateForMonth, exMonthForPayment } from './dashboard'
 import { getUsdKrwRate } from '../../services/priceService'
 
 function currentYearMonth(): string {
@@ -43,7 +43,7 @@ export async function getDividendOverview(
   const holdingRows = db
     .prepare(
       `SELECT h.id, h.name, h.dividend_per_share, h.dividend_cycle_type, h.dividend_months,
-              h.dividend_ex_day, a.account_type_code, t.label_ko
+              h.dividend_ex_day, h.dividend_pay_day, a.account_type_code, t.label_ko
        FROM holdings h
        JOIN accounts a ON a.id = h.account_id
        JOIN account_types t ON t.code = a.account_type_code
@@ -56,6 +56,7 @@ export async function getDividendOverview(
     dividend_cycle_type: 'MONTHLY' | 'CUSTOM'
     dividend_months: string | null
     dividend_ex_day: number | null
+    dividend_pay_day: number | null
     account_type_code: string
     label_ko: string
   }>
@@ -83,7 +84,8 @@ export async function getDividendOverview(
     if (h.dividend_ex_day != null) {
       for (const m of payoutMonths) {
         const ym = `${year}-${String(m).padStart(2, '0')}`
-        const eligibleQty = getHoldingQuantityAsOf(h.id, exDivDateForMonth(ym, h.dividend_ex_day))
+        const exMonth = exMonthForPayment(ym, h.dividend_ex_day, h.dividend_pay_day)
+        const eligibleQty = getHoldingQuantityAsOf(h.id, exDivDateForMonth(exMonth, h.dividend_ex_day))
         if (eligibleQty > 0) annualProjected += eligibleQty * h.dividend_per_share * fx
       }
     } else {
@@ -111,7 +113,15 @@ export async function getDividendOverview(
       h.dividend_cycle_type === 'MONTHLY' || (dividendMonths ?? []).includes(nowMonthNum)
     if (isPayoutThisMonth) {
       const eligibleQtyThisMonth =
-        h.dividend_ex_day != null ? getHoldingQuantityAsOf(h.id, exDivDateForMonth(nowMonth, h.dividend_ex_day)) : quantity
+        h.dividend_ex_day != null
+          ? getHoldingQuantityAsOf(
+              h.id,
+              exDivDateForMonth(
+                exMonthForPayment(nowMonth, h.dividend_ex_day, h.dividend_pay_day),
+                h.dividend_ex_day
+              )
+            )
+          : quantity
       if (eligibleQtyThisMonth > 0) {
         thisMonthPayouts.push({
           holdingId: h.id,
