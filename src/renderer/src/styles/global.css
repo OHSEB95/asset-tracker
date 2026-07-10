@@ -290,6 +290,12 @@ button:disabled {
   padding: 3px 8px;
 }
 
+.section-header-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .section-header-actions {
   display: flex;
   align-items: center;

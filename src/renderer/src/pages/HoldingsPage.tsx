@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAccountsContext } from '../state/AccountsContext'
 import type { PortfolioSnapshot, PortfolioRow, TransactionInput } from '@shared/types'
 import { typeRowClass } from '../utils/accountTypeStyle'
+import { EyeIcon, EyeOffIcon } from '../components/icons/EyeIcons'
 
 function formatMoney(value: number | null, currency: 'KRW' | 'USD'): string {
   if (value == null) return '-'
@@ -39,23 +40,25 @@ function formatUpdatedAt(iso: string): string {
 }
 
 function HoldingsPage(): React.JSX.Element {
-  const { holdings } = useAccountsContext()
+  const { accountTypes, holdings } = useAccountsContext()
   const [portfolio, setPortfolio] = useState<PortfolioSnapshot | null>(null)
   const [showCashOnly, setShowCashOnly] = useState(false)
+  const [accountTypeFilter, setAccountTypeFilter] = useState('')
+  const [hideValues, setHideValues] = useState(false)
   const [editingAccountId, setEditingAccountId] = useState<number | null>(null)
   const [cashEditValue, setCashEditValue] = useState('')
   const [cashSaving, setCashSaving] = useState(false)
   const [cashEditError, setCashEditError] = useState<string | null>(null)
 
   async function refresh(): Promise<void> {
-    const data = await window.api.dashboard.getPortfolioSnapshot(null)
+    const data = await window.api.dashboard.getPortfolioSnapshot(accountTypeFilter || null)
     setPortfolio(data)
   }
 
   useEffect(() => {
     refresh()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [accountTypeFilter])
 
   // 종목코드가 있는 보유종목의 현재가는 API가 충분히 정확하게 내려주므로, 탭 진입 시
   // 조용히 자동 조회해 이번 달 시세로 저장한다(사용자가 직접 입력할 필요 없음).
@@ -130,10 +133,31 @@ function HoldingsPage(): React.JSX.Element {
     <div className="page">
       <section className="card">
         <div className="section-header">
-          <h2>자산현황</h2>
-          <button type="button" className="ghost-button detail-button" onClick={() => setShowCashOnly((v) => !v)}>
-            {showCashOnly ? '전체 보기' : '예수금'}
-          </button>
+          <div className="section-header-title">
+            <h2>자산현황</h2>
+            <select value={accountTypeFilter} onChange={(e) => setAccountTypeFilter(e.target.value)}>
+              <option value="">전체</option>
+              {accountTypes.map((t) => (
+                <option key={t.code} value={t.code}>
+                  {t.labelKo}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="section-header-actions">
+            <button
+              type="button"
+              className="icon-button"
+              onClick={() => setHideValues((v) => !v)}
+              title={hideValues ? '보유수량/가치/손익 표시' : '보유수량/가치/손익 숨기기'}
+              aria-label={hideValues ? '보유수량/가치/손익 표시' : '보유수량/가치/손익 숨기기'}
+            >
+              {hideValues ? <EyeOffIcon /> : <EyeIcon />}
+            </button>
+            <button type="button" className="ghost-button detail-button" onClick={() => setShowCashOnly((v) => !v)}>
+              {showCashOnly ? '전체 보기' : '예수금'}
+            </button>
+          </div>
         </div>
 
         {showCashOnly ? (
@@ -194,12 +218,16 @@ function HoldingsPage(): React.JSX.Element {
               <tr>
                 <th className="col-type">구분</th>
                 <th className="col-product">종목</th>
-                <th className="col-qty">보유수량</th>
+                {!hideValues && <th className="col-qty">보유수량</th>}
                 <th>평단가</th>
                 <th className="price-col-narrow">현재가</th>
-                <th className="col-value">가치</th>
-                <th className="col-value">달러가치</th>
-                <th>손익</th>
+                {!hideValues && (
+                  <>
+                    <th className="col-value">가치</th>
+                    <th className="col-value">달러가치</th>
+                    <th>손익</th>
+                  </>
+                )}
                 <th>비중</th>
               </tr>
             </thead>
@@ -208,26 +236,36 @@ function HoldingsPage(): React.JSX.Element {
                 <tr key={idx} className={typeRowClass(r.accountTypeLabel)}>
                   <td className="col-type">{r.accountTypeLabel}</td>
                   <td className="col-product">{r.label}</td>
-                  <td className="col-qty">{r.quantity != null ? r.quantity.toLocaleString() : '-'}</td>
+                  {!hideValues && (
+                    <td className="col-qty">{r.quantity != null ? r.quantity.toLocaleString() : '-'}</td>
+                  )}
                   <td>{r.avgCost != null ? formatMoney(r.avgCost, r.currency) : '-'}</td>
                   <td className="price-col-narrow">{r.currentPrice != null ? formatMoney(r.currentPrice, r.currency) : '-'}</td>
-                  <td className="col-value value-cell">{formatKrw(r.value)}</td>
-                  <td className="col-value">{formatUsdValue(r.currency, r.rawValue)}</td>
-                  <td className={r.profit == null ? '' : r.profit >= 0 ? 'gain' : 'loss'}>
-                    {r.profit != null ? formatKrw(r.profit) : '-'}
-                  </td>
+                  {!hideValues && (
+                    <>
+                      <td className="col-value value-cell">{formatKrw(r.value)}</td>
+                      <td className="col-value">{formatUsdValue(r.currency, r.rawValue)}</td>
+                      <td className={r.profit == null ? '' : r.profit >= 0 ? 'gain' : 'loss'}>
+                        {r.profit != null ? formatKrw(r.profit) : '-'}
+                      </td>
+                    </>
+                  )}
                   <td>{r.weightPercent.toFixed(2)}%</td>
                 </tr>
               ))}
             </tbody>
             <tfoot className="holdings-total-row">
               <tr>
-                <td colSpan={5}>합계</td>
-                <td className="value-cell">{formatKrw(portfolio.totalValue)}</td>
-                <td></td>
-                <td className={portfolio.totalProfit >= 0 ? 'gain' : 'loss'}>
-                  {formatKrw(portfolio.totalProfit)}
-                </td>
+                <td colSpan={hideValues ? 4 : 5}>합계</td>
+                {!hideValues && (
+                  <>
+                    <td className="value-cell">{formatKrw(portfolio.totalValue)}</td>
+                    <td></td>
+                    <td className={portfolio.totalProfit >= 0 ? 'gain' : 'loss'}>
+                      {formatKrw(portfolio.totalProfit)}
+                    </td>
+                  </>
+                )}
                 <td>100.00%</td>
               </tr>
             </tfoot>
