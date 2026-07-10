@@ -26,7 +26,13 @@ function formatDividendInfo(h: Holding, isForeign: boolean): string {
     ? `$${h.dividendPerShare.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
     : `${h.dividendPerShare.toLocaleString()}원`
   const cycle = h.dividendCycleType === 'MONTHLY' ? '월배당' : `${(h.dividendMonths ?? []).join(', ')}월`
-  return `${amount} · ${cycle}`
+  const days =
+    h.dividendExDay != null || h.dividendPayDay != null
+      ? ` · 배당락 ${h.dividendExDay != null ? `${h.dividendExDay}일` : '-'} / 배당일 ${
+          h.dividendPayDay != null ? `${h.dividendPayDay}일` : '-'
+        }`
+      : ''
+  return `${amount} · ${cycle}${days}`
 }
 
 function MonthPickerPopup({
