@@ -108,6 +108,16 @@ function DividendPage(): React.JSX.Element {
 
   const monthPayoutsTotal = monthPayouts.reduce((sum, p) => sum + p.amount, 0)
 
+  // 배당일(예상) 날짜 순으로 정렬 - 배당일이 없는 종목은 맨 뒤로.
+  const sortedMonthPayouts = [...monthPayouts].sort((a, b) => {
+    const dayA = holdings.find((h) => h.id === a.holdingId)?.dividendPayDay ?? null
+    const dayB = holdings.find((h) => h.id === b.holdingId)?.dividendPayDay ?? null
+    if (dayA == null && dayB == null) return 0
+    if (dayA == null) return 1
+    if (dayB == null) return -1
+    return dayA - dayB
+  })
+
   function startEditPayDay(holding: Holding): void {
     setEditingPayDayId(holding.id)
     setPayDayInput(holding.dividendPayDay != null ? String(holding.dividendPayDay) : '')
@@ -231,7 +241,7 @@ function DividendPage(): React.JSX.Element {
               </tr>
             </thead>
             <tbody>
-              {monthPayouts.map((p) => {
+              {sortedMonthPayouts.map((p) => {
                 const holding = holdings.find((h) => h.id === p.holdingId)
                 return (
                   <tr key={p.holdingId}>
