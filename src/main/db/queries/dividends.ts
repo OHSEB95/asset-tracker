@@ -1,7 +1,7 @@
 import { getDatabase } from '../index'
 import type { DividendHoldingDetail, DividendOverview, DividendPayout } from '@shared/types'
-import { getHoldingSnapshot } from './holdings'
-import { getMonthlySummary } from './dashboard'
+import { getHoldingSnapshot, getHoldingQuantityAsOf } from './holdings'
+import { getMonthlySummary, exDivDateForMonth } from './dashboard'
 import { getUsdKrwRate } from '../../services/priceService'
 
 function currentYearMonth(): string {
@@ -43,7 +43,7 @@ export async function getDividendOverview(
   const holdingRows = db
     .prepare(
       `SELECT h.id, h.name, h.dividend_per_share, h.dividend_cycle_type, h.dividend_months,
-              a.account_type_code, t.label_ko
+              h.dividend_ex_day, a.account_type_code, t.label_ko
        FROM holdings h
        JOIN accounts a ON a.id = h.account_id
        JOIN account_types t ON t.code = a.account_type_code
@@ -55,6 +55,7 @@ export async function getDividendOverview(
     dividend_per_share: number
     dividend_cycle_type: 'MONTHLY' | 'CUSTOM'
     dividend_months: string | null
+    dividend_ex_day: number | null
     account_type_code: string
     label_ko: string
   }>
@@ -73,8 +74,21 @@ export async function getDividendOverview(
     const snapshot = getHoldingSnapshot(h.id)
     const quantity = snapshot.quantity ?? 0
 
-    const payoutsPerYear = h.dividend_cycle_type === 'MONTHLY' ? 12 : (dividendMonths?.length ?? 0)
-    const annualProjected = quantity * h.dividend_per_share * payoutsPerYear * fx
+    const payoutMonths =
+      h.dividend_cycle_type === 'MONTHLY' ? Array.from({ length: 12 }, (_, i) => i + 1) : (dividendMonths ?? [])
+
+    // 배당락일이 설정돼 있으면 각 배당월의 배당락일 시점 보유수량으로, 없으면 현재 보유수량을
+    // 전체 배당월 수에 곱해서 계산한다(배당락일 이후 매수/정리는 다음 배당락일부터 반영됨).
+    let annualProjected = 0
+    if (h.dividend_ex_day != null) {
+      for (const m of payoutMonths) {
+        const ym = `${year}-${String(m).padStart(2, '0')}`
+        const eligibleQty = getHoldingQuantityAsOf(h.id, exDivDateForMonth(ym, h.dividend_ex_day))
+        if (eligibleQty > 0) annualProjected += eligibleQty * h.dividend_per_share * fx
+      }
+    } else {
+      annualProjected = quantity * h.dividend_per_share * payoutMonths.length * fx
+    }
 
     const received = receivedStmt.get(h.id, String(year)) as { total: number }
     const receivedThisYear = received.total * fx
@@ -92,15 +106,17 @@ export async function getDividendOverview(
       receivedThisYear
     })
 
-    if (quantity > 0) {
-      const nowMonthNum = Number(nowMonth.slice(5, 7))
-      const isPayoutThisMonth =
-        h.dividend_cycle_type === 'MONTHLY' || (dividendMonths ?? []).includes(nowMonthNum)
-      if (isPayoutThisMonth) {
+    const nowMonthNum = Number(nowMonth.slice(5, 7))
+    const isPayoutThisMonth =
+      h.dividend_cycle_type === 'MONTHLY' || (dividendMonths ?? []).includes(nowMonthNum)
+    if (isPayoutThisMonth) {
+      const eligibleQtyThisMonth =
+        h.dividend_ex_day != null ? getHoldingQuantityAsOf(h.id, exDivDateForMonth(nowMonth, h.dividend_ex_day)) : quantity
+      if (eligibleQtyThisMonth > 0) {
         thisMonthPayouts.push({
           holdingId: h.id,
           holdingName: h.name,
-          amount: quantity * h.dividend_per_share * fx
+          amount: eligibleQtyThisMonth * h.dividend_per_share * fx
         })
       }
     }

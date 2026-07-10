@@ -166,9 +166,9 @@ export async function pullFromFirestore(): Promise<void> {
     const insertHolding = db.prepare(
       `INSERT INTO holdings
          (id, account_id, name, price_symbol, price_source, is_archived,
-          dividend_per_share, dividend_cycle_type, dividend_months)
+          dividend_per_share, dividend_cycle_type, dividend_months, dividend_ex_day, dividend_pay_day)
        VALUES (@id, @accountId, @name, @priceSymbol, @priceSource, @isArchived,
-               @dividendPerShare, @dividendCycleType, @dividendMonths)`
+               @dividendPerShare, @dividendCycleType, @dividendMonths, @dividendExDay, @dividendPayDay)`
     )
     for (const d of holdingDocs) {
       const h = d.fields as unknown as Holding
@@ -181,7 +181,9 @@ export async function pullFromFirestore(): Promise<void> {
         isArchived: h.isArchived ? 1 : 0,
         dividendPerShare: h.dividendPerShare ?? null,
         dividendCycleType: h.dividendCycleType ?? null,
-        dividendMonths: h.dividendMonths?.length ? h.dividendMonths.join(',') : null
+        dividendMonths: h.dividendMonths?.length ? h.dividendMonths.join(',') : null,
+        dividendExDay: h.dividendExDay ?? null,
+        dividendPayDay: h.dividendPayDay ?? null
       })
     }
 

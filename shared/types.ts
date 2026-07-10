@@ -30,6 +30,8 @@ export interface Holding {
   dividendPerShare: number | null
   dividendCycleType: DividendCycleType | null
   dividendMonths: number[] | null
+  dividendExDay: number | null
+  dividendPayDay: number | null
 }
 
 export interface HoldingInput {
@@ -40,6 +42,8 @@ export interface HoldingInput {
   dividendPerShare?: number | null
   dividendCycleType?: DividendCycleType | null
   dividendMonths?: number[] | null
+  dividendExDay?: number | null
+  dividendPayDay?: number | null
 }
 
 export type TransactionType = 'DEPOSIT' | 'WITHDRAWAL' | 'BUY' | 'SELL' | 'ADJUST' | 'DIVIDEND' | 'CLOSE'

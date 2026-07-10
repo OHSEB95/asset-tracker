@@ -474,6 +474,10 @@ tr.tx-row-dividend {
   width: 120px;
 }
 
+.pay-day-input {
+  width: 60px;
+}
+
 .row-actions {
   display: flex;
   gap: 6px;
@@ -682,6 +686,10 @@ td.loss {
 
 .field-dividend-cycle {
   flex: 0 1 170px;
+}
+
+.field-dividend-day {
+  flex: 0 1 100px;
 }
 
 .popup-backdrop {

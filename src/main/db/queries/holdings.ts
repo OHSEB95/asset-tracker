@@ -14,7 +14,9 @@ function rowToHolding(row: any): Holding {
     dividendCycleType: row.dividend_cycle_type,
     dividendMonths: row.dividend_months
       ? row.dividend_months.split(',').map((m: string) => Number(m))
-      : null
+      : null,
+    dividendExDay: row.dividend_ex_day,
+    dividendPayDay: row.dividend_pay_day
   }
 }
 
@@ -43,8 +45,10 @@ export function createHolding(input: HoldingInput): Holding {
   const result = db
     .prepare(
       `INSERT INTO holdings
-         (account_id, name, price_symbol, price_source, dividend_per_share, dividend_cycle_type, dividend_months)
-       VALUES (@accountId, @name, @priceSymbol, @priceSource, @dividendPerShare, @dividendCycleType, @dividendMonths)`
+         (account_id, name, price_symbol, price_source, dividend_per_share, dividend_cycle_type, dividend_months,
+          dividend_ex_day, dividend_pay_day)
+       VALUES (@accountId, @name, @priceSymbol, @priceSource, @dividendPerShare, @dividendCycleType, @dividendMonths,
+               @dividendExDay, @dividendPayDay)`
     )
     .run({
       accountId: input.accountId,
@@ -53,7 +57,9 @@ export function createHolding(input: HoldingInput): Holding {
       priceSource: input.priceSource ?? null,
       dividendPerShare: input.dividendPerShare ?? null,
       dividendCycleType: input.dividendCycleType ?? null,
-      dividendMonths: input.dividendMonths?.length ? input.dividendMonths.join(',') : null
+      dividendMonths: input.dividendMonths?.length ? input.dividendMonths.join(',') : null,
+      dividendExDay: input.dividendExDay ?? null,
+      dividendPayDay: input.dividendPayDay ?? null
     })
   const row = db.prepare(`SELECT * FROM holdings WHERE id = ?`).get(result.lastInsertRowid)
   return rowToHolding(row)
@@ -68,7 +74,9 @@ export function updateHolding(id: number, input: HoldingInput): Holding {
        price_source = @priceSource,
        dividend_per_share = @dividendPerShare,
        dividend_cycle_type = @dividendCycleType,
-       dividend_months = @dividendMonths
+       dividend_months = @dividendMonths,
+       dividend_ex_day = @dividendExDay,
+       dividend_pay_day = @dividendPayDay
      WHERE id = @id`
   ).run({
     id,
@@ -77,7 +85,9 @@ export function updateHolding(id: number, input: HoldingInput): Holding {
     priceSource: input.priceSource ?? null,
     dividendPerShare: input.dividendPerShare ?? null,
     dividendCycleType: input.dividendCycleType ?? null,
-    dividendMonths: input.dividendMonths?.length ? input.dividendMonths.join(',') : null
+    dividendMonths: input.dividendMonths?.length ? input.dividendMonths.join(',') : null,
+    dividendExDay: input.dividendExDay ?? null,
+    dividendPayDay: input.dividendPayDay ?? null
   })
   const row = db.prepare(`SELECT * FROM holdings WHERE id = ?`).get(id)
   return rowToHolding(row)
@@ -169,6 +179,21 @@ export function getHoldingSnapshot(holdingId: number): HoldingSnapshot {
     lastKnownPriceMonth: snapshot?.yearMonth ?? null,
     currentValuation: priceForValuation != null ? state.quantity * priceForValuation : null
   }
+}
+
+/**
+ * 특정 날짜(주로 배당락일) 시점까지의 매수/매도/정리 거래만 반영한 보유수량.
+ * 배당락일 이후에 이루어진 매수/정리는 그 달 배당에는 반영되지 않고 다음 배당락일부터 반영된다.
+ */
+export function getHoldingQuantityAsOf(holdingId: number, asOfDate: string): number {
+  const db = getDatabase()
+  const rows = db
+    .prepare(
+      `SELECT * FROM transactions WHERE holding_id = ? AND type IN ('BUY','SELL','ADJUST') AND date <= ?
+       ORDER BY date ASC, id ASC`
+    )
+    .all(holdingId, asOfDate)
+  return replayHoldingState(rows.map(rowToTransaction)).quantity
 }
 
 export function upsertPriceSnapshot(input: PriceSnapshotInput): void {

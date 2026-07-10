@@ -8,8 +8,17 @@ import type {
   Transaction
 } from '@shared/types'
 import { cashImpact, replayCashHoldingState, replayHoldingState } from './replay'
-import { getHoldingSnapshot } from './holdings'
+import { getHoldingSnapshot, getHoldingQuantityAsOf } from './holdings'
 import { getUsdKrwRate } from '../../services/priceService'
+
+/** yearMonth의 day일에 해당하는 날짜 문자열. day가 그 달의 마지막 날보다 크면(예: 31일인데
+ * 2월인 경우) 그 달의 마지막 날로 맞춘다. */
+export function exDivDateForMonth(yearMonth: string, day: number): string {
+  const [y, m] = yearMonth.split('-').map(Number)
+  const lastDay = new Date(y, m, 0).getDate()
+  const clampedDay = Math.min(day, lastDay)
+  return `${yearMonth}-${String(clampedDay).padStart(2, '0')}`
+}
 
 function rowToAccount(row: any): Account {
   return {
@@ -150,7 +159,8 @@ export async function getMonthlySummary(filter: DashboardFilter): Promise<Monthl
     dividendCycleType: row.dividend_cycle_type as 'MONTHLY' | 'CUSTOM' | null,
     dividendMonths: row.dividend_months
       ? (row.dividend_months as string).split(',').map((m: string) => Number(m))
-      : null
+      : null,
+    dividendExDay: row.dividend_ex_day as number | null
   }))
 
   const snapshotRows = db
@@ -241,7 +251,6 @@ export async function getMonthlySummary(filter: DashboardFilter): Promise<Monthl
 
     const acct = accounts.find((a) => a.id === holding.accountId)
     const fx = acct?.accountTypeCode === 'FOREIGN_STOCK' ? rate : 1
-    const perPayout = snapshot.quantity * holding.dividendPerShare * fx
 
     for (const month of months) {
       if (month < nowMonth) continue
@@ -250,6 +259,15 @@ export async function getMonthlySummary(filter: DashboardFilter): Promise<Monthl
         holding.dividendCycleType === 'MONTHLY' ||
         (holding.dividendCycleType === 'CUSTOM' && (holding.dividendMonths ?? []).includes(monthNum))
       if (!isPayoutMonth) continue
+
+      // 배당락일이 설정돼 있으면 그 시점 기준 보유수량으로, 없으면 현재 보유수량으로 계산한다.
+      // 배당락일 이후에 매수/정리한 수량은 이번 배당락일에는 반영되지 않고 다음 배당락일부터 반영됨.
+      const eligibleQty =
+        holding.dividendExDay != null
+          ? getHoldingQuantityAsOf(holding.id, exDivDateForMonth(month, holding.dividendExDay))
+          : snapshot.quantity
+      if (eligibleQty <= 0) continue
+      const perPayout = eligibleQty * holding.dividendPerShare * fx
       projectedByMonth.set(month, (projectedByMonth.get(month) ?? 0) + perPayout)
     }
   }

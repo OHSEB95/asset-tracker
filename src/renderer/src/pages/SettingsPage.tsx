@@ -82,6 +82,8 @@ function HoldingsPanel({ accountId }: { accountId: number }): React.JSX.Element 
   const [dividendCycleType, setDividendCycleType] = useState<DividendCycleType | null>(null)
   const [dividendMonths, setDividendMonths] = useState<number[]>([])
   const [showMonthPopup, setShowMonthPopup] = useState(false)
+  const [dividendExDayInput, setDividendExDayInput] = useState('')
+  const [dividendPayDayInput, setDividendPayDayInput] = useState('')
 
   const hasDividend = dividendPerShareInput.trim() !== ''
 
@@ -121,6 +123,8 @@ function HoldingsPanel({ accountId }: { accountId: number }): React.JSX.Element 
     setDividendPerShareInput('')
     setDividendCycleType(null)
     setDividendMonths([])
+    setDividendExDayInput('')
+    setDividendPayDayInput('')
     setEditingId(null)
   }
 
@@ -131,7 +135,9 @@ function HoldingsPanel({ accountId }: { accountId: number }): React.JSX.Element 
       ...form,
       dividendPerShare: hasDividend ? parseFloat(dividendPerShareInput) : null,
       dividendCycleType: hasDividend ? dividendCycleType : null,
-      dividendMonths: hasDividend && dividendCycleType === 'CUSTOM' ? dividendMonths : null
+      dividendMonths: hasDividend && dividendCycleType === 'CUSTOM' ? dividendMonths : null,
+      dividendExDay: hasDividend && dividendExDayInput.trim() !== '' ? parseInt(dividendExDayInput, 10) : null,
+      dividendPayDay: hasDividend && dividendPayDayInput.trim() !== '' ? parseInt(dividendPayDayInput, 10) : null
     }
     if (editingId) {
       await window.api.holdings.update(editingId, input)
@@ -154,6 +160,8 @@ function HoldingsPanel({ accountId }: { accountId: number }): React.JSX.Element 
     setDividendPerShareInput(h.dividendPerShare != null ? String(h.dividendPerShare) : '')
     setDividendCycleType(h.dividendCycleType)
     setDividendMonths(h.dividendMonths ?? [])
+    setDividendExDayInput(h.dividendExDay != null ? String(h.dividendExDay) : '')
+    setDividendPayDayInput(h.dividendPayDay != null ? String(h.dividendPayDay) : '')
   }
 
   async function handleArchive(id: number): Promise<void> {
@@ -239,6 +247,32 @@ function HoldingsPanel({ accountId }: { accountId: number }): React.JSX.Element 
           >
             월 선택
           </button>
+        )}
+        {hasDividend && (
+          <>
+            <label className="field-dividend-day">
+              배당락일
+              <input
+                type="number"
+                min={1}
+                max={31}
+                value={dividendExDayInput}
+                onChange={(e) => setDividendExDayInput(e.target.value)}
+                placeholder="예: 1"
+              />
+            </label>
+            <label className="field-dividend-day">
+              배당일 (예상)
+              <input
+                type="number"
+                min={1}
+                max={31}
+                value={dividendPayDayInput}
+                onChange={(e) => setDividendPayDayInput(e.target.value)}
+                placeholder="예: 15"
+              />
+            </label>
+          </>
         )}
         <div className="form-actions">
           <button type="submit">{editingId ? '수정 저장' : '종목 추가'}</button>

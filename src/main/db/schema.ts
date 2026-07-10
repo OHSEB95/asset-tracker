@@ -23,6 +23,8 @@ CREATE TABLE IF NOT EXISTS holdings (
   dividend_per_share REAL,
   dividend_cycle_type TEXT,
   dividend_months TEXT,
+  dividend_ex_day INTEGER,
+  dividend_pay_day INTEGER,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

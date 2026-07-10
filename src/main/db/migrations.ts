@@ -138,12 +138,21 @@ function migrateHoldingsDividendColumns(db: Database.Database): void {
   `)
 }
 
+/** 보유종목에 배당락일/배당일(예상) 컬럼 추가 - 배당락일 기준 보유수량으로 배당 예상액 계산에 사용 */
+function migrateHoldingsDividendDayColumns(db: Database.Database): void {
+  db.exec(`
+    ALTER TABLE holdings ADD COLUMN dividend_ex_day INTEGER;
+    ALTER TABLE holdings ADD COLUMN dividend_pay_day INTEGER;
+  `)
+}
+
 export const MIGRATIONS: Migration[] = [
   { version: 1, up: migrateTransactionsAdjustCash },
   { version: 2, up: migrateYouthSavingsLabel },
   { version: 3, up: migrateTransactionsCloseType },
   { version: 4, up: migrateSavingsHoldingAdjustShape },
-  { version: 5, up: migrateHoldingsDividendColumns }
+  { version: 5, up: migrateHoldingsDividendColumns },
+  { version: 6, up: migrateHoldingsDividendDayColumns }
 ]
 
 export const LATEST_SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1].version
