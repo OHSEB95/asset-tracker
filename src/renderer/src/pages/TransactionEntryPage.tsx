@@ -97,6 +97,31 @@ function TransactionEntryPage(): React.JSX.Element {
   const isSavingsAccount = selectedAccount?.accountTypeCode === 'YOUTH_SAVINGS'
   const accountHoldings = holdings.filter((h) => h.accountId === resolvedAccountId && !h.isArchived)
 
+  // 전량 매도(또는 잔액 0)해서 더 이상 보유하지 않는 종목은 선택 목록 아래로 자동 정렬한다.
+  const [holdingSnapshots, setHoldingSnapshots] = useState<Record<number, HoldingSnapshot>>({})
+  useEffect(() => {
+    if (accountHoldings.length === 0) {
+      setHoldingSnapshots({})
+      return
+    }
+    Promise.all(accountHoldings.map((h) => window.api.holdings.snapshot(h.id))).then((list) => {
+      const map: Record<number, HoldingSnapshot> = {}
+      list.forEach((s) => (map[s.holdingId] = s))
+      setHoldingSnapshots(map)
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resolvedAccountId, holdings])
+
+  function isActiveHolding(h: Holding): boolean {
+    const snap = holdingSnapshots[h.id]
+    if (!snap) return true
+    if (snap.quantity != null) return snap.quantity > 0
+    return (snap.currentValuation ?? 0) > 0
+  }
+  const sortedAccountHoldings = [...accountHoldings].sort(
+    (a, b) => Number(!isActiveHolding(a)) - Number(!isActiveHolding(b))
+  )
+
   useEffect(() => {
     setInputInKrw(false)
   }, [resolvedAccountId])
@@ -504,7 +529,7 @@ function TransactionEntryPage(): React.JSX.Element {
                   {accountHoldings.length > 0 ? (
                     <>
                       <option value="">선택</option>
-                      {accountHoldings.map((h) => (
+                      {sortedAccountHoldings.map((h) => (
                         <option key={h.id} value={h.id}>
                           {h.name}
                         </option>
@@ -535,7 +560,7 @@ function TransactionEntryPage(): React.JSX.Element {
                     onChange={(e) => setHoldingId(e.target.value ? Number(e.target.value) : null)}
                   >
                     <option value="">선택</option>
-                    {accountHoldings.map((h) => (
+                    {sortedAccountHoldings.map((h) => (
                       <option key={h.id} value={h.id}>
                         {h.name}
                       </option>
@@ -582,7 +607,7 @@ function TransactionEntryPage(): React.JSX.Element {
                   onChange={(e) => setHoldingId(e.target.value ? Number(e.target.value) : null)}
                 >
                   <option value="">계좌 전체</option>
-                  {accountHoldings.map((h) => (
+                  {sortedAccountHoldings.map((h) => (
                     <option key={h.id} value={h.id}>
                       {h.name}
                     </option>
