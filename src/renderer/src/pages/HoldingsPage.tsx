@@ -219,16 +219,16 @@ function HoldingsPage(): React.JSX.Element {
                 <th className="col-type">구분</th>
                 <th className="col-product">종목</th>
                 {!hideValues && <th className="col-qty">보유수량</th>}
-                <th>평단가</th>
+                <th className="col-avg-cost">평단가</th>
                 <th className="price-col-narrow">현재가</th>
                 {!hideValues && (
                   <>
                     <th className="col-value">가치</th>
                     <th className="col-value">달러가치</th>
-                    <th>손익</th>
+                    <th className="col-profit">손익</th>
                   </>
                 )}
-                <th>비중</th>
+                <th className="col-weight">비중</th>
               </tr>
             </thead>
             <tbody>
@@ -239,18 +239,18 @@ function HoldingsPage(): React.JSX.Element {
                   {!hideValues && (
                     <td className="col-qty">{r.quantity != null ? r.quantity.toLocaleString() : '-'}</td>
                   )}
-                  <td>{r.avgCost != null ? formatMoney(r.avgCost, r.currency) : '-'}</td>
+                  <td className="col-avg-cost">{r.avgCost != null ? formatMoney(r.avgCost, r.currency) : '-'}</td>
                   <td className="price-col-narrow">{r.currentPrice != null ? formatMoney(r.currentPrice, r.currency) : '-'}</td>
                   {!hideValues && (
                     <>
                       <td className="col-value value-cell">{formatKrw(r.value)}</td>
                       <td className="col-value">{formatUsdValue(r.currency, r.rawValue)}</td>
-                      <td className={r.profit == null ? '' : r.profit >= 0 ? 'gain' : 'loss'}>
+                      <td className={`col-profit ${r.profit == null ? '' : r.profit >= 0 ? 'gain' : 'loss'}`}>
                         {r.profit != null ? formatKrw(r.profit) : '-'}
                       </td>
                     </>
                   )}
-                  <td>{r.weightPercent.toFixed(2)}%</td>
+                  <td className="col-weight">{r.weightPercent.toFixed(2)}%</td>
                 </tr>
               ))}
             </tbody>

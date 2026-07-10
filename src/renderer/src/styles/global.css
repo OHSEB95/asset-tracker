@@ -327,7 +327,7 @@ button:disabled {
 }
 
 .price-col-narrow {
-  width: 90px;
+  width: 11%;
 }
 
 .holdings-table {
@@ -399,8 +399,20 @@ tr.tx-row-dividend {
   width: 7%;
 }
 
+.col-avg-cost {
+  width: 10%;
+}
+
 .col-value {
   width: 13%;
+}
+
+.col-profit {
+  width: 12%;
+}
+
+.col-weight {
+  width: 7%;
 }
 
 .col-type,
