@@ -146,13 +146,19 @@ function migrateHoldingsDividendDayColumns(db: Database.Database): void {
   `)
 }
 
+/** 거래내역에 sort_order 컬럼 추가 - 같은 날짜 거래끼리 표시 순서를 수동으로 바꿀 수 있게 함 */
+function migrateTransactionsSortOrder(db: Database.Database): void {
+  db.exec(`ALTER TABLE transactions ADD COLUMN sort_order INTEGER;`)
+}
+
 export const MIGRATIONS: Migration[] = [
   { version: 1, up: migrateTransactionsAdjustCash },
   { version: 2, up: migrateYouthSavingsLabel },
   { version: 3, up: migrateTransactionsCloseType },
   { version: 4, up: migrateSavingsHoldingAdjustShape },
   { version: 5, up: migrateHoldingsDividendColumns },
-  { version: 6, up: migrateHoldingsDividendDayColumns }
+  { version: 6, up: migrateHoldingsDividendDayColumns },
+  { version: 7, up: migrateTransactionsSortOrder }
 ]
 
 export const LATEST_SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1].version

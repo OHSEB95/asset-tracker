@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS transactions (
   amount REAL,
   realized_pnl REAL,
   note TEXT,
+  sort_order INTEGER,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   CHECK (
     (type IN ('DEPOSIT','WITHDRAWAL','DIVIDEND','CLOSE')

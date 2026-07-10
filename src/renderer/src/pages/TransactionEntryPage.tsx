@@ -344,6 +344,19 @@ function TransactionEntryPage(): React.JSX.Element {
     await refresh()
   }
 
+  async function handleMove(id: number, direction: 'up' | 'down'): Promise<void> {
+    await window.api.transactions.moveOrder(id, direction)
+    await reloadTransactions()
+  }
+
+  // 같은 날짜 거래끼리의 표시 순서만 바꾸는 기능이라, 필터/검색이 걸려있거나 "전체" 계좌
+  // 유형을 보고 있으면(계좌가 여러 개 섞여서 실제 인접 거래가 화면에 안 보일 수 있음)
+  // 혼란스러우므로 특정 계좌 하나를 보고 있고 필터가 없을 때만 위/아래 버튼을 보여준다.
+  const canReorder = !historyTypeFilter && !historySearch.trim() && resolvedAccountId != null
+  function sameDateGroup(t: Transaction): Transaction[] {
+    return transactions.filter((x) => x.accountId === t.accountId && x.date === t.date)
+  }
+
   function renderHint(): React.JSX.Element | null {
     if (isSavingsAccount) {
       if (type === 'CLOSE') {
@@ -719,6 +732,31 @@ function TransactionEntryPage(): React.JSX.Element {
                     )}
                     <td>{t.note ?? '-'}</td>
                     <td className="row-actions">
+                      {canReorder &&
+                        (() => {
+                          const group = sameDateGroup(t)
+                          const idx = group.findIndex((g) => g.id === t.id)
+                          return (
+                            <>
+                              <button
+                                type="button"
+                                title="같은 날짜 안에서 위로"
+                                disabled={idx <= 0}
+                                onClick={() => handleMove(t.id, 'up')}
+                              >
+                                ▲
+                              </button>
+                              <button
+                                type="button"
+                                title="같은 날짜 안에서 아래로"
+                                disabled={idx === -1 || idx >= group.length - 1}
+                                onClick={() => handleMove(t.id, 'down')}
+                              >
+                                ▼
+                              </button>
+                            </>
+                          )
+                        })()}
                       <button type="button" onClick={() => startEdit(t)}>
                         수정
                       </button>

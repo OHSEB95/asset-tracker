@@ -46,6 +46,7 @@ export interface Api {
     create(input: TransactionInput): Promise<{ data: Transaction } | { error: string }>
     update(id: number, input: TransactionInput): Promise<{ data: Transaction } | { error: string }>
     delete(id: number): Promise<{ ok: true } | { error: string }>
+    moveOrder(id: number, direction: 'up' | 'down'): Promise<{ ok: true } | { error: string }>
   }
   prices: {
     fetch(holdingId: number): Promise<PriceFetchResult | PriceFetchError>

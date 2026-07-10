@@ -42,9 +42,43 @@ export function listTransactions(filter: TransactionListFilter): Transaction[] {
   }
   const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
   const rows = db
-    .prepare(`SELECT * FROM transactions ${where} ORDER BY date DESC, id DESC`)
+    .prepare(
+      `SELECT * FROM transactions ${where} ORDER BY date DESC, COALESCE(sort_order, id) DESC`
+    )
     .all(params)
   return rows.map(rowToTransaction)
+}
+
+/**
+ * 같은 날짜의 거래끼리 표시 순서를 위/아래로 바꾼다. 계산(평단가/실현손익 등)에는 영향을 주지
+ * 않고 목록에 보여지는 순서만 바꾼다 - 계산은 항상 date와 id(입력 순서) 기준으로 고정.
+ */
+export function moveTransactionOrder(id: number, direction: 'up' | 'down'): void {
+  const db = getDatabase()
+  const target = db.prepare(`SELECT account_id, date FROM transactions WHERE id = ?`).get(id) as
+    | { account_id: number; date: string }
+    | undefined
+  if (!target) throw new Error('거래를 찾을 수 없습니다.')
+
+  const siblings = db
+    .prepare(
+      `SELECT id, COALESCE(sort_order, id) AS effective_order FROM transactions
+       WHERE account_id = ? AND date = ? ORDER BY effective_order DESC`
+    )
+    .all(target.account_id, target.date) as Array<{ id: number; effective_order: number }>
+
+  const idx = siblings.findIndex((s) => s.id === id)
+  const swapIdx = direction === 'up' ? idx - 1 : idx + 1
+  if (idx === -1 || swapIdx < 0 || swapIdx >= siblings.length) return
+
+  const current = siblings[idx]
+  const swapTarget = siblings[swapIdx]
+  const update = db.prepare(`UPDATE transactions SET sort_order = ? WHERE id = ?`)
+  const tx = db.transaction(() => {
+    update.run(swapTarget.effective_order, current.id)
+    update.run(current.effective_order, swapTarget.id)
+  })
+  tx()
 }
 
 /**

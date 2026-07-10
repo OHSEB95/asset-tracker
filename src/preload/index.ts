@@ -36,7 +36,9 @@ const api = {
     create: (input: TransactionInput) => ipcRenderer.invoke(IPC.TRANSACTIONS_CREATE, input),
     update: (id: number, input: TransactionInput) =>
       ipcRenderer.invoke(IPC.TRANSACTIONS_UPDATE, id, input),
-    delete: (id: number) => ipcRenderer.invoke(IPC.TRANSACTIONS_DELETE, id)
+    delete: (id: number) => ipcRenderer.invoke(IPC.TRANSACTIONS_DELETE, id),
+    moveOrder: (id: number, direction: 'up' | 'down') =>
+      ipcRenderer.invoke(IPC.TRANSACTIONS_MOVE_ORDER, id, direction)
   },
   prices: {
     fetch: (holdingId: number) => ipcRenderer.invoke(IPC.PRICES_FETCH, holdingId)
