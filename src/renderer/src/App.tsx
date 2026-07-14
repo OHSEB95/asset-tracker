@@ -27,10 +27,11 @@ function ExchangeRateBadge(): React.JSX.Element {
         '환율 조회 중…'
       ) : (
         <>
-          오늘의 환율 USD/KRW{' '}
+          오늘의 환율{' '}
           <span className="exchange-rate-value">
             {rate.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-          </span>
+          </span>{' '}
+          USD/KRW
           {stale && <span className="stale-tag"> (지연)</span>}
         </>
       )}

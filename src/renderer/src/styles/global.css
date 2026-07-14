@@ -71,7 +71,7 @@ body {
 .exchange-rate-value {
   font-weight: 700;
   font-size: 13px;
-  color: var(--accent);
+  color: var(--gain);
 }
 
 .user-badge {
