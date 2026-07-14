@@ -56,15 +56,17 @@ function AppShell(): React.JSX.Element {
                 {t.label}
               </button>
             ))}
-            <ExchangeRateBadge />
-            {user.name && (
-              <div className="user-badge">
-                <span className="user-badge-name">{user.name}</span>님
-              </div>
-            )}
-            <button type="button" className="ghost-button logout-button" onClick={logout}>
-              로그아웃
-            </button>
+            <div className="nav-right">
+              <ExchangeRateBadge />
+              {user.name && (
+                <div className="user-badge">
+                  <span className="user-badge-name">{user.name}</span>님
+                </div>
+              )}
+              <button type="button" className="ghost-button logout-button" onClick={logout}>
+                로그아웃
+              </button>
+            </div>
           </nav>
           <main className="tab-content">
             {tab === 'dashboard' && (

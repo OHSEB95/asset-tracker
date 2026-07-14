@@ -50,9 +50,15 @@ body {
   font-weight: 600;
 }
 
-.exchange-rate-badge {
+.nav-right {
   margin-left: auto;
   align-self: center;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.exchange-rate-badge {
   font-size: 12px;
   color: var(--muted);
   white-space: nowrap;
@@ -63,8 +69,6 @@ body {
 }
 
 .user-badge {
-  margin-left: 12px;
-  align-self: center;
   font-size: 12px;
   color: var(--muted);
   white-space: nowrap;
@@ -76,9 +80,6 @@ body {
 }
 
 .logout-button {
-  margin-left: 8px;
-  align-self: flex-end;
-  margin-bottom: 1px;
   font-size: 11px;
   padding: 3px 8px;
 }
