@@ -2,8 +2,8 @@ import { ipcMain } from 'electron'
 import { IPC } from '@shared/ipcChannels'
 import type { AuthResult, ChangePasswordResult } from '@shared/types'
 import { login, register, logout, getCurrentUser, changePassword } from '../services/authSession'
-import { pullFromFirestore } from '../services/syncService'
-import { readRememberedEmail, writeRememberedEmail } from '../services/authStore'
+import { pullFromFirestore, clearAllLocalData } from '../services/syncService'
+import { readRememberedEmail, writeRememberedEmail, writeLocalDataUid } from '../services/authStore'
 
 function toErrorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err)
@@ -49,6 +49,10 @@ export function registerAuthIpc(): void {
       try {
         const user = await register(email, password, name, phoneNumber, autoLogin)
         writeRememberedEmail(rememberEmail ? email : null)
+        // 새로 만든 계정은 이 기기에 남아있을 수 있는(예: 다른 계정으로 쓰다 로그아웃한) 로컬
+        // 데이터와 무관하므로, 항상 로컬을 비우고 새 계정 소유로 표시한다.
+        clearAllLocalData()
+        writeLocalDataUid(user.uid)
         return { user }
       } catch (err) {
         return { error: toErrorMessage(err) }

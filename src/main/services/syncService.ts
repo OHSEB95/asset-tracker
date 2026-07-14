@@ -9,7 +9,12 @@ import {
   type FirestoreWrite
 } from './firebase/firestoreApi'
 import { getIdTokenForSync } from './authSession'
-import { readKnownRemoteSyncedAt, writeKnownRemoteSyncedAt } from './authStore'
+import {
+  readKnownRemoteSyncedAt,
+  writeKnownRemoteSyncedAt,
+  readLocalDataUid,
+  writeLocalDataUid
+} from './authStore'
 
 /** push 시점에 클라우드가 이 기기가 모르는 사이 더 최신으로 바뀌어 있을 때(다른 기기가 먼저
  * 동기화한 경우) 던져진다. 그대로 덮어쓰면 그 변경사항을 잃으므로, 강제 진행 여부를
@@ -39,6 +44,20 @@ export class AccountDeletionGuardError extends Error {
 async function getRemoteLastSyncedAt(idToken: string, uid: string): Promise<string | null> {
   const doc = await firestoreGetDocument(idToken, `users/${uid}`)
   return (doc?.lastSyncedAt as string | undefined) ?? null
+}
+
+/** 로컬 accounts/holdings/transactions/price_snapshots를 전부 지운다. 다른 계정의 로컬
+ * 데이터를 새 계정에 물려주지 않기 위해(계정 전환) 또는 신규 가입 시 사용한다. */
+export function clearAllLocalData(): void {
+  const db = getDatabase()
+  const clearAll = db.transaction(() => {
+    db.pragma('defer_foreign_keys = ON')
+    db.prepare('DELETE FROM transactions').run()
+    db.prepare('DELETE FROM price_snapshots').run()
+    db.prepare('DELETE FROM holdings').run()
+    db.prepare('DELETE FROM accounts').run()
+  })
+  clearAll()
 }
 
 function accountDocPath(uid: string, id: number): string {
@@ -132,8 +151,19 @@ export async function pullFromFirestore(): Promise<void> {
   ])
 
   if (accountDocs.length === 0 && holdingDocs.length === 0 && transactionDocs.length === 0) {
-    // 원격에 아직 아무 데이터도 없으면(최초 로그인 등) 로컬 데이터를 그대로 둔다.
+    const localDataUid = readLocalDataUid()
+    if (localDataUid == null || localDataUid === uid) {
+      // 원격에 아직 아무 데이터도 없고, 로컬 데이터도 이 계정 것이거나 주인이 기록된 적 없으면
+      // (새 기기 최초 로그인 등) 로컬 데이터를 그대로 둔다.
+      writeKnownRemoteSyncedAt(remoteLastSyncedAt)
+      writeLocalDataUid(uid)
+      return
+    }
+    // 로컬 데이터가 다른 계정(uid) 것으로 기록돼 있으면, 지금 로그인한 계정과 무관한 데이터이므로
+    // 물려주지 않고 비운다(같은 기기에서 로그아웃 후 새 계정으로 로그인하는 경우).
+    clearAllLocalData()
     writeKnownRemoteSyncedAt(remoteLastSyncedAt)
+    writeLocalDataUid(uid)
     return
   }
 
@@ -214,6 +244,7 @@ export async function pullFromFirestore(): Promise<void> {
   })
   replaceAll()
   writeKnownRemoteSyncedAt(remoteLastSyncedAt)
+  writeLocalDataUid(uid)
 }
 
 export async function getSyncStatus(): Promise<SyncStatus> {

@@ -105,27 +105,59 @@ function syncStateFilePath(): string {
   return join(app.getPath('userData'), SYNC_STATE_FILE)
 }
 
+interface SyncState {
+  knownRemoteSyncedAt?: string
+  localDataUid?: string
+}
+
+function readSyncState(): SyncState {
+  const filePath = syncStateFilePath()
+  if (!existsSync(filePath)) return {}
+  try {
+    return JSON.parse(readFileSync(filePath, 'utf-8')) as SyncState
+  } catch {
+    return {}
+  }
+}
+
+function writeSyncState(state: SyncState): void {
+  const filePath = syncStateFilePath()
+  if (!state.knownRemoteSyncedAt && !state.localDataUid) {
+    if (existsSync(filePath)) unlinkSync(filePath)
+    return
+  }
+  writeFileSync(filePath, JSON.stringify(state), 'utf-8')
+}
+
 /**
  * 이 기기가 마지막으로 실제로 반영한(pull로 받아왔거나 push로 직접 써넣은) 클라우드의
  * lastSyncedAt 값. push 직전에 클라우드의 실제 lastSyncedAt과 비교해 이 기기가 모르는 사이
  * 다른 기기가 더 최신으로 동기화했는지 감지하는 데 쓴다.
  */
 export function readKnownRemoteSyncedAt(): string | null {
-  const filePath = syncStateFilePath()
-  if (!existsSync(filePath)) return null
-  try {
-    const parsed = JSON.parse(readFileSync(filePath, 'utf-8')) as { knownRemoteSyncedAt?: string }
-    return parsed.knownRemoteSyncedAt ?? null
-  } catch {
-    return null
-  }
+  return readSyncState().knownRemoteSyncedAt ?? null
 }
 
 export function writeKnownRemoteSyncedAt(value: string | null): void {
-  const filePath = syncStateFilePath()
-  if (!value) {
-    if (existsSync(filePath)) unlinkSync(filePath)
-    return
-  }
-  writeFileSync(filePath, JSON.stringify({ knownRemoteSyncedAt: value }), 'utf-8')
+  const state = readSyncState()
+  if (value) state.knownRemoteSyncedAt = value
+  else delete state.knownRemoteSyncedAt
+  writeSyncState(state)
+}
+
+/**
+ * 지금 로컬 DB(accounts/holdings/transactions)가 실제로 어느 계정(uid)의 데이터인지 기록한다.
+ * "클라우드가 비어있으면 로컬 데이터를 보존한다"는 pull의 안전장치가, 같은 기기에서 로그아웃
+ * 후 다른 계정으로 로그인했을 때 이전 계정의 로컬 데이터를 새 계정에 잘못 물려주는 것을
+ * 막기 위해 쓴다.
+ */
+export function readLocalDataUid(): string | null {
+  return readSyncState().localDataUid ?? null
+}
+
+export function writeLocalDataUid(uid: string | null): void {
+  const state = readSyncState()
+  if (uid) state.localDataUid = uid
+  else delete state.localDataUid
+  writeSyncState(state)
 }
