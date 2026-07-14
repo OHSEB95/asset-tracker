@@ -75,6 +75,13 @@ body {
   color: var(--accent);
 }
 
+.logout-button {
+  margin-left: 8px;
+  align-self: center;
+  font-size: 11px;
+  padding: 3px 8px;
+}
+
 .tab-content {
   flex: 1;
   overflow-y: auto;

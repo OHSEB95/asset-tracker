@@ -403,7 +403,7 @@ function PasswordChangeCard(): React.JSX.Element {
 }
 
 function SyncCard(): React.JSX.Element {
-  const { user, logout } = useAuthContext()
+  const { user } = useAuthContext()
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null)
   const [syncing, setSyncing] = useState(false)
   const [syncMessage, setSyncMessage] = useState<string | null>(null)
@@ -469,9 +469,6 @@ function SyncCard(): React.JSX.Element {
       <div className="form-actions">
         <button onClick={() => handleSync(false)} disabled={syncing}>
           이 기기 데이터를 클라우드에 백업
-        </button>
-        <button type="button" className="ghost-button" onClick={logout}>
-          로그아웃
         </button>
       </div>
       {syncMessage && <p className={syncMessage.includes('실패') || syncMessage.includes('취소') ? 'error-text' : 'success-text'}>{syncMessage}</p>}

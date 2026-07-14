@@ -36,7 +36,7 @@ function ExchangeRateBadge(): React.JSX.Element {
 }
 
 function AppShell(): React.JSX.Element {
-  const { user, loading } = useAuthContext()
+  const { user, loading, logout } = useAuthContext()
   const [tab, setTab] = useState<Tab>('dashboard')
 
   if (loading) return <div className="page">로딩 중…</div>
@@ -62,6 +62,9 @@ function AppShell(): React.JSX.Element {
                 <span className="user-badge-name">{user.name}</span>님
               </div>
             )}
+            <button type="button" className="ghost-button logout-button" onClick={logout}>
+              로그아웃
+            </button>
           </nav>
           <main className="tab-content">
             {tab === 'dashboard' && (
