@@ -68,6 +68,12 @@ body {
   color: #d97706;
 }
 
+.exchange-rate-value {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--accent);
+}
+
 .user-badge {
   font-size: 12px;
   color: var(--muted);
@@ -80,6 +86,8 @@ body {
 }
 
 .logout-button {
+  position: relative;
+  top: -1px;
   font-size: 11px;
   padding: 3px 8px;
 }
