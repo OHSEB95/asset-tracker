@@ -10,7 +10,7 @@ interface ExchangeRateContextValue {
 }
 
 const ExchangeRateContext = createContext<ExchangeRateContextValue | null>(null)
-const REFRESH_INTERVAL_MS = 5 * 60 * 1000
+const REFRESH_INTERVAL_MS = 60 * 1000
 
 export function ExchangeRateProvider({ children }: { children: ReactNode }): React.JSX.Element {
   const [info, setInfo] = useState<ExchangeRateInfo | null>(null)
