@@ -714,6 +714,19 @@ td.loss {
   border-bottom: none;
 }
 
+/* 달러(원화) 병기 여부에 따라 줄바꿈이 생기면 달에 따라 표 높이가 들쭉날쭉해지므로,
+   항상 한 줄로 고정해 간격을 통일한다. */
+.payout-total-table td,
+.payout-total-table tfoot td {
+  white-space: nowrap;
+}
+
+.payout-group-row td {
+  font-weight: 700;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
 /* 보유종목 등록 폼 (설정 화면) */
 .field-holding-name {
   flex: 2 1 220px;

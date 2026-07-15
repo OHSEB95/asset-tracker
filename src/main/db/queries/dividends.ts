@@ -19,6 +19,7 @@ interface DividendHoldingRow {
   dividend_pay_day: number | null
   account_type_code: string
   label_ko: string
+  sort_order: number
 }
 
 function queryDividendHoldingRows(accountTypeCode?: string | null): DividendHoldingRow[] {
@@ -32,7 +33,7 @@ function queryDividendHoldingRows(accountTypeCode?: string | null): DividendHold
   return db
     .prepare(
       `SELECT h.id, h.name, h.dividend_per_share, h.dividend_cycle_type, h.dividend_months,
-              h.dividend_ex_day, h.dividend_pay_day, a.account_type_code, t.label_ko
+              h.dividend_ex_day, h.dividend_pay_day, a.account_type_code, t.label_ko, t.sort_order
        FROM holdings h
        JOIN accounts a ON a.id = h.account_id
        JOIN account_types t ON t.code = a.account_type_code
@@ -72,6 +73,7 @@ export async function getPayoutsForMonth(
     payouts.push({
       holdingId: h.id,
       holdingName: h.name,
+      accountTypeLabel: h.label_ko,
       amount: rawAmount * fx,
       rawAmount,
       currency: h.account_type_code === 'FOREIGN_STOCK' ? 'USD' : 'KRW'
@@ -113,7 +115,7 @@ export async function getDividendOverview(
      WHERE holding_id = ? AND type = 'DIVIDEND' AND substr(date, 1, 4) = ?`
   )
 
-  const holdings: DividendHoldingDetail[] = []
+  const holdingsWithOrder: Array<{ detail: DividendHoldingDetail; sortOrder: number }> = []
 
   for (const h of holdingRows) {
     const fx = h.account_type_code === 'FOREIGN_STOCK' ? rate : 1
@@ -126,36 +128,45 @@ export async function getDividendOverview(
 
     // 배당락일이 설정돼 있으면 각 배당월의 배당락일 시점 보유수량으로, 없으면 현재 보유수량을
     // 전체 배당월 수에 곱해서 계산한다(배당락일 이후 매수/정리는 다음 배당락일부터 반영됨).
-    let annualProjected = 0
+    let rawAnnualProjected = 0
     if (h.dividend_ex_day != null) {
       for (const m of payoutMonths) {
         const ym = `${year}-${String(m).padStart(2, '0')}`
         const exMonth = exMonthForPayment(ym, h.dividend_ex_day, h.dividend_pay_day)
         const eligibleQty = getHoldingQuantityAsOf(h.id, exDivDateForMonth(exMonth, h.dividend_ex_day))
-        if (eligibleQty > 0) annualProjected += eligibleQty * h.dividend_per_share * fx
+        if (eligibleQty > 0) rawAnnualProjected += eligibleQty * h.dividend_per_share
       }
     } else {
-      annualProjected = quantity * h.dividend_per_share * payoutMonths.length * fx
+      rawAnnualProjected = quantity * h.dividend_per_share * payoutMonths.length
     }
 
     const received = receivedStmt.get(h.id, String(year)) as { total: number }
-    const receivedThisYear = received.total * fx
+    const rawReceivedThisYear = received.total
 
-    holdings.push({
-      holdingId: h.id,
-      holdingName: h.name,
-      accountTypeLabel: h.label_ko,
-      dividendCycleType: h.dividend_cycle_type,
-      dividendMonths,
-      dividendPerShare: h.dividend_per_share,
-      currency: h.account_type_code === 'FOREIGN_STOCK' ? 'USD' : 'KRW',
-      quantity,
-      annualProjected,
-      receivedThisYear
+    holdingsWithOrder.push({
+      sortOrder: h.sort_order,
+      detail: {
+        holdingId: h.id,
+        holdingName: h.name,
+        accountTypeLabel: h.label_ko,
+        dividendCycleType: h.dividend_cycle_type,
+        dividendMonths,
+        dividendPerShare: h.dividend_per_share,
+        currency: h.account_type_code === 'FOREIGN_STOCK' ? 'USD' : 'KRW',
+        quantity,
+        annualProjected: rawAnnualProjected * fx,
+        rawAnnualProjected,
+        receivedThisYear: rawReceivedThisYear * fx,
+        rawReceivedThisYear
+      }
     })
   }
 
-  holdings.sort((a, b) => b.annualProjected - a.annualProjected)
+  // 계좌유형(정해진 순서) 우선, 그 안에서는 연 예상 배당액이 큰 순.
+  holdingsWithOrder.sort(
+    (a, b) => a.sortOrder - b.sortOrder || b.detail.annualProjected - a.detail.annualProjected
+  )
+  const holdings = holdingsWithOrder.map((h) => h.detail)
 
   const thisMonthPayouts = await getPayoutsForMonth(nowMonth, accountTypeCode)
 

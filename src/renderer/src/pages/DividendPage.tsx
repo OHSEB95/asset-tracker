@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAccountsContext } from '../state/AccountsContext'
 import type { DividendOverview, DividendPayout, Holding, HoldingInput } from '@shared/types'
 import DividendChart from '../components/charts/DividendChart'
+import { typeRowClass } from '../utils/accountTypeStyle'
 
 function currentYear(): number {
   return new Date().getFullYear()
@@ -27,12 +28,35 @@ function formatPerShare(value: number, currency: 'KRW' | 'USD'): string {
   return `${value.toLocaleString()}원`
 }
 
+function formatUsdNumber(value: number): string {
+  return value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
 // 해외주식은 실제로 달러로 입금되므로, 예상 배당액을 달러(원화) 형태로 함께 보여준다.
 function formatPayoutAmount(p: DividendPayout): string {
   const krw = formatKrw(p.amount)
   if (p.currency !== 'USD') return krw
-  const usd = p.rawAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-  return `$${usd} (${krw})`
+  return `$${formatUsdNumber(p.rawAmount)} (${krw})`
+}
+
+// 종목별 배당 상세는 반대로 원화를 앞에, 달러를 괄호에 표기한다.
+function formatKrwWithUsd(krwValue: number, rawValue: number, currency: 'KRW' | 'USD'): string {
+  const krw = formatKrw(krwValue)
+  if (currency !== 'USD') return krw
+  return `${krw} ($${formatUsdNumber(rawValue)})`
+}
+
+interface PayoutGroup {
+  accountTypeLabel: string
+  currency: 'KRW' | 'USD'
+  payouts: DividendPayout[]
+  totalKrw: number
+  totalRaw: number
+}
+
+function formatGroupTotal(g: PayoutGroup): string {
+  if (g.currency !== 'USD') return formatKrw(g.totalKrw)
+  return `$${formatUsdNumber(g.totalRaw)} (${formatKrw(g.totalKrw)})`
 }
 
 function formatDayInMonth(day: number, baseMonth: string): string {
@@ -131,6 +155,24 @@ function DividendPage(): React.JSX.Element {
     if (dayB == null) return -1
     return dayA - dayB
   })
+
+  // 계좌 구분별로 묶어서 구분마다 얼마씩 들어오는지 한눈에 보이게 한다.
+  const payoutGroups = Object.values(
+    sortedMonthPayouts.reduce<Record<string, PayoutGroup>>((acc, p) => {
+      const g = acc[p.accountTypeLabel] ?? {
+        accountTypeLabel: p.accountTypeLabel,
+        currency: p.currency,
+        payouts: [],
+        totalKrw: 0,
+        totalRaw: 0
+      }
+      g.payouts.push(p)
+      g.totalKrw += p.amount
+      g.totalRaw += p.rawAmount
+      acc[p.accountTypeLabel] = g
+      return acc
+    }, {})
+  ).sort((a, b) => b.totalKrw - a.totalKrw)
 
   function startEditPayDay(holding: Holding): void {
     setEditingPayDayId(holding.id)
@@ -254,60 +296,66 @@ function DividendPage(): React.JSX.Element {
                 <th>예상 배당액</th>
               </tr>
             </thead>
-            <tbody>
-              {sortedMonthPayouts.map((p) => {
-                const holding = holdings.find((h) => h.id === p.holdingId)
-                return (
-                  <tr key={p.holdingId}>
-                    <td>{p.holdingName}</td>
-                    <td>
-                      {holding?.dividendExDay != null
-                        ? formatDayInMonth(
-                            holding.dividendExDay,
-                            exMonthForThisPayment(holding.dividendExDay, holding.dividendPayDay, payoutMonth)
-                          )
-                        : '-'}
-                    </td>
-                    <td>
-                      {editingPayDayId === p.holdingId ? (
-                        <>
-                          <input
-                            type="number"
-                            min={1}
-                            max={31}
-                            value={payDayInput}
-                            onChange={(e) => setPayDayInput(e.target.value)}
-                            className="pay-day-input"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => holding && savePayDay(holding)}
-                            disabled={payDaySaving}
-                          >
-                            저장
-                          </button>
-                          <button type="button" onClick={cancelEditPayDay} disabled={payDaySaving}>
-                            취소
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          {holding?.dividendPayDay != null
-                            ? formatDayInMonth(holding.dividendPayDay, payoutMonth)
-                            : '-'}
-                          {holding && (
-                            <button type="button" className="ghost-button" onClick={() => startEditPayDay(holding)}>
-                              수정
+            {payoutGroups.map((g) => (
+              <tbody key={g.accountTypeLabel}>
+                <tr className={`payout-group-row ${typeRowClass(g.accountTypeLabel)}`}>
+                  <td colSpan={3}>{g.accountTypeLabel} 합계</td>
+                  <td>{formatGroupTotal(g)}</td>
+                </tr>
+                {g.payouts.map((p) => {
+                  const holding = holdings.find((h) => h.id === p.holdingId)
+                  return (
+                    <tr key={p.holdingId} className={typeRowClass(p.accountTypeLabel)}>
+                      <td>{p.holdingName}</td>
+                      <td>
+                        {holding?.dividendExDay != null
+                          ? formatDayInMonth(
+                              holding.dividendExDay,
+                              exMonthForThisPayment(holding.dividendExDay, holding.dividendPayDay, payoutMonth)
+                            )
+                          : '-'}
+                      </td>
+                      <td>
+                        {editingPayDayId === p.holdingId ? (
+                          <>
+                            <input
+                              type="number"
+                              min={1}
+                              max={31}
+                              value={payDayInput}
+                              onChange={(e) => setPayDayInput(e.target.value)}
+                              className="pay-day-input"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => holding && savePayDay(holding)}
+                              disabled={payDaySaving}
+                            >
+                              저장
                             </button>
-                          )}
-                        </>
-                      )}
-                    </td>
-                    <td>{formatPayoutAmount(p)}</td>
-                  </tr>
-                )
-              })}
-            </tbody>
+                            <button type="button" onClick={cancelEditPayDay} disabled={payDaySaving}>
+                              취소
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            {holding?.dividendPayDay != null
+                              ? formatDayInMonth(holding.dividendPayDay, payoutMonth)
+                              : '-'}
+                            {holding && (
+                              <button type="button" className="ghost-button" onClick={() => startEditPayDay(holding)}>
+                                수정
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </td>
+                      <td>{formatPayoutAmount(p)}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            ))}
             <tfoot>
               <tr>
                 <td colSpan={3}>합계</td>
@@ -365,8 +413,8 @@ function DividendPage(): React.JSX.Element {
                   <td>{formatCycle(h.dividendCycleType, h.dividendMonths)}</td>
                   <td>{formatPerShare(h.dividendPerShare, h.currency)}</td>
                   <td>{h.quantity.toLocaleString()}</td>
-                  <td>{formatKrw(h.annualProjected)}</td>
-                  <td>{formatKrw(h.receivedThisYear)}</td>
+                  <td>{formatKrwWithUsd(h.annualProjected, h.rawAnnualProjected, h.currency)}</td>
+                  <td>{formatKrwWithUsd(h.receivedThisYear, h.rawReceivedThisYear, h.currency)}</td>
                 </tr>
               ))}
             </tbody>

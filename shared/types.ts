@@ -166,12 +166,15 @@ export interface DividendHoldingDetail {
   currency: 'KRW' | 'USD'
   quantity: number
   annualProjected: number
+  rawAnnualProjected: number
   receivedThisYear: number
+  rawReceivedThisYear: number
 }
 
 export interface DividendPayout {
   holdingId: number
   holdingName: string
+  accountTypeLabel: string
   amount: number
   rawAmount: number
   currency: 'KRW' | 'USD'
