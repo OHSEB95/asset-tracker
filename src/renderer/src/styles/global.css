@@ -271,6 +271,25 @@ button:disabled {
   padding: 3px 8px;
 }
 
+.move-button {
+  background: none;
+  border: none;
+  color: var(--muted);
+  padding: 2px 3px;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.move-button:hover:not(:disabled) {
+  color: var(--accent);
+}
+
+.move-button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
 .currency-toggle {
   margin: 0;
   font-size: 12px;

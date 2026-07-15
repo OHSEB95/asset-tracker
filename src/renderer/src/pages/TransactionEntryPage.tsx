@@ -752,6 +752,7 @@ function TransactionEntryPage(): React.JSX.Element {
                             <>
                               <button
                                 type="button"
+                                className="move-button"
                                 title="같은 날짜 안에서 위로"
                                 disabled={idx <= 0}
                                 onClick={() => handleMove(t.id, 'up')}
@@ -760,6 +761,7 @@ function TransactionEntryPage(): React.JSX.Element {
                               </button>
                               <button
                                 type="button"
+                                className="move-button"
                                 title="같은 날짜 안에서 아래로"
                                 disabled={idx === -1 || idx >= group.length - 1}
                                 onClick={() => handleMove(t.id, 'down')}
