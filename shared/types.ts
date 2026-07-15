@@ -173,6 +173,8 @@ export interface DividendPayout {
   holdingId: number
   holdingName: string
   amount: number
+  rawAmount: number
+  currency: 'KRW' | 'USD'
 }
 
 export interface DividendOverview {

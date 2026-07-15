@@ -27,6 +27,14 @@ function formatPerShare(value: number, currency: 'KRW' | 'USD'): string {
   return `${value.toLocaleString()}원`
 }
 
+// 해외주식은 실제로 달러로 입금되므로, 예상 배당액을 달러(원화) 형태로 함께 보여준다.
+function formatPayoutAmount(p: DividendPayout): string {
+  const krw = formatKrw(p.amount)
+  if (p.currency !== 'USD') return krw
+  const usd = p.rawAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return `$${usd} (${krw})`
+}
+
 function formatDayInMonth(day: number, baseMonth: string): string {
   const m = Number(baseMonth.slice(5, 7))
   return `${m}월 ${day}일`
@@ -289,7 +297,7 @@ function DividendPage(): React.JSX.Element {
                         </>
                       )}
                     </td>
-                    <td>{formatKrw(p.amount)}</td>
+                    <td>{formatPayoutAmount(p)}</td>
                   </tr>
                 )
               })}

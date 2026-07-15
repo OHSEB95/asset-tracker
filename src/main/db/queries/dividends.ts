@@ -68,10 +68,13 @@ export async function getPayoutsForMonth(
         : quantity
     if (eligibleQty <= 0) continue
 
+    const rawAmount = eligibleQty * h.dividend_per_share
     payouts.push({
       holdingId: h.id,
       holdingName: h.name,
-      amount: eligibleQty * h.dividend_per_share * fx
+      amount: rawAmount * fx,
+      rawAmount,
+      currency: h.account_type_code === 'FOREIGN_STOCK' ? 'USD' : 'KRW'
     })
   }
 
