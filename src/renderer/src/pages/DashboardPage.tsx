@@ -126,12 +126,6 @@ function DashboardPage({
         {latest && (
           <div className="summary-group">
             <div>
-              <span className="summary-label">누적 원금</span>
-              <span className="summary-value">
-                {Math.round(latest.principal).toLocaleString()}원
-              </span>
-            </div>
-            <div>
               <span className="summary-label">총 평가자산</span>
               <span className="summary-value">{Math.round(latest.valuation).toLocaleString()}원</span>
             </div>
@@ -140,6 +134,12 @@ function DashboardPage({
               <span className={`summary-value ${totalGain >= 0 ? 'gain' : 'loss'}`}>
                 {totalGain >= 0 ? '+' : ''}
                 {Math.round(totalGain).toLocaleString()}원
+              </span>
+            </div>
+            <div>
+              <span className="summary-label">누적 원금</span>
+              <span className="summary-value projected-value">
+                {Math.round(latest.principal).toLocaleString()}원
               </span>
             </div>
           </div>
