@@ -39,6 +39,32 @@ function formatUpdatedAt(iso: string): string {
   return `${mm}/${dd} ${hh}:${min}`
 }
 
+function buildAiCopyText(portfolio: PortfolioSnapshot, filterLabel: string): string {
+  const lines: string[] = []
+  lines.push(`# 자산현황 (${todayDate()} 기준, 필터: ${filterLabel})`)
+  lines.push('')
+  lines.push('| 구분 | 종목 | 보유수량 | 평단가 | 현재가 | 가치(원화) | 손익(원화) | 비중 |')
+  lines.push('|---|---|---|---|---|---|---|---|')
+  for (const r of portfolio.rows) {
+    const qty = r.quantity != null ? r.quantity.toLocaleString() : '-'
+    const avgCost = r.avgCost != null ? formatMoney(r.avgCost, r.currency) : '-'
+    const currentPrice = r.currentPrice != null ? formatMoney(r.currentPrice, r.currency) : '-'
+    const value = formatKrw(r.value)
+    const profit = r.profit != null ? formatKrw(r.profit) : '-'
+    lines.push(
+      `| ${r.accountTypeLabel} | ${r.label} | ${qty} | ${avgCost} | ${currentPrice} | ${value} | ${profit} | ${r.weightPercent.toFixed(2)}% |`
+    )
+  }
+  lines.push(
+    `| 합계 |  |  |  |  | ${formatKrw(portfolio.totalValue)} | ${formatKrw(portfolio.totalProfit)} | 100.00% |`
+  )
+  if (portfolio.pricesUpdatedAt) {
+    lines.push('')
+    lines.push(`(현재가 마지막 갱신: ${formatUpdatedAt(portfolio.pricesUpdatedAt)})`)
+  }
+  return lines.join('\n')
+}
+
 function HoldingsPage(): React.JSX.Element {
   const { accountTypes, holdings } = useAccountsContext()
   const [portfolio, setPortfolio] = useState<PortfolioSnapshot | null>(null)
@@ -49,6 +75,7 @@ function HoldingsPage(): React.JSX.Element {
   const [cashEditValue, setCashEditValue] = useState('')
   const [cashSaving, setCashSaving] = useState(false)
   const [cashEditError, setCashEditError] = useState<string | null>(null)
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'error'>('idle')
 
   async function refresh(): Promise<void> {
     const data = await window.api.dashboard.getPortfolioSnapshot(accountTypeFilter || null)
@@ -129,6 +156,21 @@ function HoldingsPage(): React.JSX.Element {
 
   const cashRows = portfolio ? portfolio.rows.filter((r) => r.kind === 'cash') : []
 
+  async function copyForAi(): Promise<void> {
+    if (!portfolio || portfolio.rows.length === 0) return
+    const filterLabel = accountTypeFilter
+      ? (accountTypes.find((t) => t.code === accountTypeFilter)?.labelKo ?? '전체')
+      : '전체'
+    const text = buildAiCopyText(portfolio, filterLabel)
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopyStatus('copied')
+    } catch {
+      setCopyStatus('error')
+    }
+    setTimeout(() => setCopyStatus('idle'), 2000)
+  }
+
   return (
     <div className="page">
       <section className="card">
@@ -156,6 +198,14 @@ function HoldingsPage(): React.JSX.Element {
             </button>
             <button type="button" className="ghost-button detail-button" onClick={() => setShowCashOnly((v) => !v)}>
               {showCashOnly ? '전체 보기' : '예수금'}
+            </button>
+            <button
+              type="button"
+              className="ghost-button detail-button"
+              onClick={copyForAi}
+              disabled={!portfolio || portfolio.rows.length === 0}
+            >
+              {copyStatus === 'copied' ? '복사됨!' : copyStatus === 'error' ? '복사 실패' : 'AI 분석용 복사'}
             </button>
           </div>
         </div>
