@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAccountsContext } from '../state/AccountsContext'
 import { useExchangeRateContext } from '../state/ExchangeRateContext'
 import NumberInput from '../components/NumberInput'
+import { PencilIcon, TrashIcon } from '../components/icons/ActionIcons'
 import type {
   Holding,
   HoldingSnapshot,
@@ -771,11 +772,16 @@ function TransactionEntryPage(): React.JSX.Element {
                             </>
                           )
                         })()}
-                      <button type="button" onClick={() => startEdit(t)}>
-                        수정
+                      <button type="button" className="row-icon-button" title="수정" onClick={() => startEdit(t)}>
+                        <PencilIcon />
                       </button>
-                      <button type="button" onClick={() => handleDelete(t.id)}>
-                        삭제
+                      <button
+                        type="button"
+                        className="row-icon-button row-icon-danger"
+                        title="삭제"
+                        onClick={() => handleDelete(t.id)}
+                      >
+                        <TrashIcon />
                       </button>
                     </td>
                   </tr>

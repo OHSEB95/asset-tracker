@@ -275,8 +275,8 @@ button:disabled {
   background: none;
   border: none;
   color: var(--muted);
-  padding: 2px 3px;
-  font-size: 11px;
+  padding: 2px 4px;
+  font-size: 15px;
   line-height: 1;
   cursor: pointer;
 }
@@ -288,6 +288,26 @@ button:disabled {
 .move-button:disabled {
   opacity: 0.3;
   cursor: default;
+}
+
+.row-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--muted);
+  padding: 3px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.row-icon-button:hover {
+  color: var(--accent);
+}
+
+.row-icon-button.row-icon-danger:hover {
+  color: #dc2626;
 }
 
 .currency-toggle {
