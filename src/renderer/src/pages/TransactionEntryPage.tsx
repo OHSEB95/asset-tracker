@@ -460,24 +460,36 @@ function TransactionEntryPage(): React.JSX.Element {
         </div>
 
         <div className="tx-form asset-type-row">
-          <label className="field-type">
-            자산유형
-            <select
-              value={assetTypeCode}
-              disabled={editingTxId != null}
-              onChange={(e) => {
-                setAssetTypeCode(e.target.value)
-                setSecondaryAccountId(null)
-              }}
-            >
-              <option value="">전체</option>
+          <div className="asset-type-tab-field">
+            <span className="field-caption">자산유형</span>
+            <div className="asset-type-tabs">
+              <button
+                type="button"
+                className={`asset-type-tab ${isAllSelected ? 'active' : ''}`}
+                disabled={editingTxId != null}
+                onClick={() => {
+                  setAssetTypeCode('')
+                  setSecondaryAccountId(null)
+                }}
+              >
+                전체
+              </button>
               {accountTypes.map((t) => (
-                <option key={t.code} value={t.code}>
+                <button
+                  key={t.code}
+                  type="button"
+                  className={`asset-type-tab ${assetTypeCode === t.code ? 'active' : ''}`}
+                  disabled={editingTxId != null}
+                  onClick={() => {
+                    setAssetTypeCode(t.code)
+                    setSecondaryAccountId(null)
+                  }}
+                >
                   {t.labelKo}
-                </option>
+                </button>
               ))}
-            </select>
-          </label>
+            </div>
+          </div>
           {!isAllSelected && matchingAccounts.length > 1 && (
             <label className="field-account">
               계좌명

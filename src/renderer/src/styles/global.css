@@ -448,6 +448,51 @@ tr.tx-row-dividend {
   margin-bottom: 14px;
 }
 
+.asset-type-tab-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.field-caption {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.asset-type-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.asset-type-tab {
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--card-bg);
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.asset-type-tab:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.asset-type-tab.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+.asset-type-tab:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* 거래내역: 화면 크기에 맞춰 늘어나고, 최근 거래만 내부 스크롤되는 레이아웃 */
 .entry-page {
   display: flex;
