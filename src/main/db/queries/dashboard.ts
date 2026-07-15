@@ -310,15 +310,19 @@ export async function getMonthlySummary(filter: DashboardFilter): Promise<Monthl
   })
 }
 
-export async function getPortfolioSnapshot(accountTypeCode?: string | null): Promise<PortfolioSnapshot> {
+export async function getPortfolioSnapshot(
+  accountTypeCode?: string | string[] | null
+): Promise<PortfolioSnapshot> {
   const db = getDatabase()
   const { rate } = await getUsdKrwRate()
 
+  const codes = accountTypeCode == null ? [] : Array.isArray(accountTypeCode) ? accountTypeCode : [accountTypeCode]
+
   const conditions = ['a.is_archived = 0']
   const params: unknown[] = []
-  if (accountTypeCode) {
-    conditions.push('a.account_type_code = ?')
-    params.push(accountTypeCode)
+  if (codes.length > 0) {
+    conditions.push(`a.account_type_code IN (${codes.map(() => '?').join(',')})`)
+    params.push(...codes)
   }
   const accountRows = db
     .prepare(

@@ -65,7 +65,7 @@ export interface Api {
   }
   dashboard: {
     getMonthlySummary(filter: DashboardFilter): Promise<MonthlySummaryRow[]>
-    getPortfolioSnapshot(accountTypeCode?: string | null): Promise<PortfolioSnapshot>
+    getPortfolioSnapshot(accountTypeCode?: string | string[] | null): Promise<PortfolioSnapshot>
   }
   dividends: {
     getOverview(year: number, accountTypeCode?: string | null): Promise<DividendOverview>

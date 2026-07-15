@@ -69,7 +69,7 @@ function HoldingsPage(): React.JSX.Element {
   const { accountTypes, holdings } = useAccountsContext()
   const [portfolio, setPortfolio] = useState<PortfolioSnapshot | null>(null)
   const [showCashOnly, setShowCashOnly] = useState(false)
-  const [accountTypeFilter, setAccountTypeFilter] = useState('')
+  const [accountTypeFilters, setAccountTypeFilters] = useState<string[]>([])
   const [hideValues, setHideValues] = useState(false)
   const [editingAccountId, setEditingAccountId] = useState<number | null>(null)
   const [cashEditValue, setCashEditValue] = useState('')
@@ -78,14 +78,22 @@ function HoldingsPage(): React.JSX.Element {
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'error'>('idle')
 
   async function refresh(): Promise<void> {
-    const data = await window.api.dashboard.getPortfolioSnapshot(accountTypeFilter || null)
+    const data = await window.api.dashboard.getPortfolioSnapshot(
+      accountTypeFilters.length > 0 ? accountTypeFilters : null
+    )
     setPortfolio(data)
   }
 
   useEffect(() => {
     refresh()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accountTypeFilter])
+  }, [accountTypeFilters])
+
+  function toggleAccountTypeFilter(code: string): void {
+    setAccountTypeFilters((prev) =>
+      prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]
+    )
+  }
 
   // 종목코드가 있는 보유종목의 현재가는 API가 충분히 정확하게 내려주므로, 탭 진입 시
   // 조용히 자동 조회해 이번 달 시세로 저장한다(사용자가 직접 입력할 필요 없음).
@@ -158,9 +166,13 @@ function HoldingsPage(): React.JSX.Element {
 
   async function copyForAi(): Promise<void> {
     if (!portfolio || portfolio.rows.length === 0) return
-    const filterLabel = accountTypeFilter
-      ? (accountTypes.find((t) => t.code === accountTypeFilter)?.labelKo ?? '전체')
-      : '전체'
+    const filterLabel =
+      accountTypeFilters.length > 0
+        ? accountTypes
+            .filter((t) => accountTypeFilters.includes(t.code))
+            .map((t) => t.labelKo)
+            .join(', ')
+        : '전체'
     const text = buildAiCopyText(portfolio, filterLabel)
     try {
       await navigator.clipboard.writeText(text)
@@ -177,14 +189,14 @@ function HoldingsPage(): React.JSX.Element {
         <div className="section-header">
           <div className="section-header-title">
             <h2>자산현황</h2>
-            <select value={accountTypeFilter} onChange={(e) => setAccountTypeFilter(e.target.value)}>
-              <option value="">전체</option>
-              {accountTypes.map((t) => (
-                <option key={t.code} value={t.code}>
-                  {t.labelKo}
-                </option>
-              ))}
-            </select>
+            <button
+              type="button"
+              className="ghost-button detail-button"
+              onClick={copyForAi}
+              disabled={!portfolio || portfolio.rows.length === 0}
+            >
+              {copyStatus === 'copied' ? '복사됨!' : copyStatus === 'error' ? '복사 실패' : 'AI 분석용 복사'}
+            </button>
           </div>
           <div className="section-header-actions">
             <button
@@ -199,15 +211,20 @@ function HoldingsPage(): React.JSX.Element {
             <button type="button" className="ghost-button detail-button" onClick={() => setShowCashOnly((v) => !v)}>
               {showCashOnly ? '전체 보기' : '예수금'}
             </button>
-            <button
-              type="button"
-              className="ghost-button detail-button"
-              onClick={copyForAi}
-              disabled={!portfolio || portfolio.rows.length === 0}
-            >
-              {copyStatus === 'copied' ? '복사됨!' : copyStatus === 'error' ? '복사 실패' : 'AI 분석용 복사'}
-            </button>
           </div>
+        </div>
+
+        <div className="account-type-checkbox-row">
+          {accountTypes.map((t) => (
+            <label key={t.code} className="account-type-checkbox">
+              <input
+                type="checkbox"
+                checked={accountTypeFilters.includes(t.code)}
+                onChange={() => toggleAccountTypeFilter(t.code)}
+              />
+              {t.labelKo}
+            </label>
+          ))}
         </div>
 
         {showCashOnly ? (

@@ -57,7 +57,7 @@ const api = {
   dashboard: {
     getMonthlySummary: (filter: DashboardFilter) =>
       ipcRenderer.invoke(IPC.DASHBOARD_GET_MONTHLY_SUMMARY, filter),
-    getPortfolioSnapshot: (accountTypeCode?: string | null) =>
+    getPortfolioSnapshot: (accountTypeCode?: string | string[] | null) =>
       ipcRenderer.invoke(IPC.DASHBOARD_GET_PORTFOLIO_SNAPSHOT, accountTypeCode)
   },
   dividends: {

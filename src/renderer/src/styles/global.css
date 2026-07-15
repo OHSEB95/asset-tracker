@@ -790,6 +790,28 @@ td.loss {
   color: var(--text);
 }
 
+.account-type-checkbox-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-bottom: 14px;
+}
+
+.account-type-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.account-type-checkbox input {
+  width: auto;
+  padding: 0;
+  cursor: pointer;
+}
+
 .login-screen {
   height: 100vh;
   display: flex;

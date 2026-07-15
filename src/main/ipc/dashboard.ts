@@ -8,7 +8,7 @@ export function registerDashboardIpc(): void {
     getMonthlySummary(filter ?? {})
   )
 
-  ipcMain.handle(IPC.DASHBOARD_GET_PORTFOLIO_SNAPSHOT, (_e, accountTypeCode?: string | null) =>
+  ipcMain.handle(IPC.DASHBOARD_GET_PORTFOLIO_SNAPSHOT, (_e, accountTypeCode?: string | string[] | null) =>
     getPortfolioSnapshot(accountTypeCode)
   )
 }
