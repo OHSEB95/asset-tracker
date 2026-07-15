@@ -115,6 +115,12 @@ function DividendPage(): React.JSX.Element {
   const yearOptions = [currentYear(), currentYear() - 1, currentYear() - 2]
 
   const monthPayoutsTotal = monthPayouts.reduce((sum, p) => sum + p.amount, 0)
+  const monthPayoutsKrwTotal = monthPayouts
+    .filter((p) => p.currency === 'KRW')
+    .reduce((sum, p) => sum + p.amount, 0)
+  const monthPayoutsUsdTotal = monthPayouts
+    .filter((p) => p.currency === 'USD')
+    .reduce((sum, p) => sum + p.rawAmount, 0)
 
   // 배당일(예상) 날짜 순으로 정렬 - 배당일이 없는 종목은 맨 뒤로.
   const sortedMonthPayouts = [...monthPayouts].sort((a, b) => {
@@ -305,7 +311,20 @@ function DividendPage(): React.JSX.Element {
             <tfoot>
               <tr>
                 <td colSpan={3}>합계</td>
-                <td>{formatKrw(monthPayoutsTotal)}</td>
+                <td>
+                  {formatKrw(monthPayoutsTotal)}
+                  {monthPayoutsUsdTotal > 0 && (
+                    <>
+                      {' '}
+                      ({formatKrw(monthPayoutsKrwTotal)} + $
+                      {monthPayoutsUsdTotal.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                      })}
+                      )
+                    </>
+                  )}
+                </td>
               </tr>
             </tfoot>
           </table>
