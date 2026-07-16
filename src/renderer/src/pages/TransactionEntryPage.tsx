@@ -33,6 +33,13 @@ const TYPE_ROW_CLASS: Partial<Record<TransactionType, string>> = {
 const STOCK_TYPE_CODES: TransactionType[] = ['DEPOSIT', 'WITHDRAWAL', 'BUY', 'SELL', 'ADJUST', 'DIVIDEND']
 const SAVINGS_TYPE_CODES: TransactionType[] = ['DEPOSIT', 'WITHDRAWAL', 'ADJUST', 'CLOSE']
 
+// 거래내역 화면의 자산유형 탭 버튼 이름만 계좌번호를 병기해 구분되게 표시한다(다른 화면 표시명은 그대로).
+const ASSET_TYPE_TAB_LABEL_OVERRIDE: Partial<Record<string, string>> = {
+  PENSION_FUND: '연금저축(22)',
+  IRP: 'IRP(29)',
+  ISA: 'ISA(01)'
+}
+
 function todayDate(): string {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -486,7 +493,7 @@ function TransactionEntryPage(): React.JSX.Element {
                     setSecondaryAccountId(null)
                   }}
                 >
-                  {t.labelKo}
+                  {ASSET_TYPE_TAB_LABEL_OVERRIDE[t.code] ?? t.labelKo}
                 </button>
               ))}
             </div>
