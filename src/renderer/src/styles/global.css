@@ -814,37 +814,38 @@ td.loss {
 
 .payout-total-table th:nth-child(1),
 .payout-total-table td:nth-child(1) {
-  width: 19%;
+  width: 26%;
 }
 
 .payout-total-table th:nth-child(2),
 .payout-total-table td:nth-child(2) {
-  width: 13%;
+  width: 11%;
 }
 
 .payout-total-table th:nth-child(3),
 .payout-total-table td:nth-child(3) {
-  width: 25%;
+  width: 20%;
 }
 
 .payout-total-table th:nth-child(4),
 .payout-total-table td:nth-child(4) {
-  width: 13%;
+  width: 11%;
 }
 
 .payout-total-table th:nth-child(5),
 .payout-total-table td:nth-child(5) {
-  width: 15%;
+  width: 16%;
 }
 
 .payout-total-table th:nth-child(6),
 .payout-total-table td:nth-child(6) {
-  width: 15%;
+  width: 16%;
 }
 
 .dividend-received-check {
   color: var(--gain);
   font-weight: 700;
+  font-size: 13px;
 }
 
 .payout-group-row td {
