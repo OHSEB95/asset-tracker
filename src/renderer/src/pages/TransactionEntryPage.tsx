@@ -717,6 +717,7 @@ function TransactionEntryPage(): React.JSX.Element {
                   {!hideStockColumns && <th>단가</th>}
                   <th>금액</th>
                   {!hideStockColumns && <th>매도손익</th>}
+                  {!hideStockColumns && <th>적용환율</th>}
                   <th>메모</th>
                   <th></th>
                 </tr>
@@ -742,6 +743,13 @@ function TransactionEntryPage(): React.JSX.Element {
                     </td>
                     {!hideStockColumns && (
                       <td>{t.realizedPnl != null ? displayMoneyForTx(t, t.realizedPnl) : '-'}</td>
+                    )}
+                    {!hideStockColumns && (
+                      <td>
+                        {t.fxRate != null
+                          ? `${t.fxRate.toLocaleString(undefined, { maximumFractionDigits: 2 })}원`
+                          : '-'}
+                      </td>
                     )}
                     <td>{t.note ?? '-'}</td>
                     <td className="row-actions">

@@ -257,9 +257,14 @@ export async function getMonthlySummary(filter: DashboardFilter): Promise<Monthl
             (t.type === 'BUY' || t.type === 'SELL' || t.type === 'ADJUST')
         )
         if (holdingTx.length === 0) continue
-        const state = replayHoldingState(holdingTx, rate)
+        const state = replayHoldingState(holdingTx, fx)
         if (state.quantity <= 0) continue
-        if (state.avgCostKrw != null) principalTotal += state.quantity * state.avgCostKrw
+        // 원화 종목은 avgCostKrw를 쓰지 않고 원래 공식(avgCost x fx, fx=1) 그대로 유지한다.
+        if (acct.accountTypeCode === 'FOREIGN_STOCK') {
+          if (state.avgCostKrw != null) principalTotal += state.quantity * state.avgCostKrw
+        } else if (state.avgCost != null) {
+          principalTotal += state.quantity * state.avgCost * fx
+        }
         const price = forwardFilledPrice(holding.id, month) ?? state.avgCost
         if (price != null) valuationTotal += state.quantity * price * fx
       }
@@ -363,7 +368,7 @@ export async function getPortfolioSnapshot(
     const isSavings = acct.account_type_code === 'YOUTH_SAVINGS'
     let hasHoldingRows = false
     for (const h of holdingRows) {
-      const snap = getHoldingSnapshot(h.id, rate)
+      const snap = getHoldingSnapshot(h.id, fx)
 
       if (isSavings) {
         const balance = snap.currentValuation ?? 0
@@ -395,10 +400,12 @@ export async function getPortfolioSnapshot(
       const value = rawValue * fx
       const rawProfit =
         currentPrice != null && snap.avgCost != null ? (currentPrice - snap.avgCost) * snap.quantity : null
-      // 손익(원화)은 "오늘 환율 x 달러 손익"이 아니라 "지금 평가금액 - 실제 매수 시점 환율로 환산한
-      // 원가"로 계산한다 - 해외주식은 그 사이 환율이 바뀌면 두 값이 크게 달라질 수 있어서다.
+      // 손익(원화) 계산은 해외주식만 다르게 한다: "오늘 환율 x 달러 손익"이 아니라 "지금
+      // 평가금액 - 실제 매수 시점 환율로 환산한 원가"로 계산(그 사이 환율이 바뀌면 두 값이
+      // 크게 달라질 수 있어서). 원화 종목(국내주식/연금저축펀드/IRP/ISA/비트코인/안전자산)은
+      // avgCostKrw를 아예 쓰지 않고 원래 공식(rawProfit x fx, fx=1)을 그대로 쓴다.
       const profit =
-        currentPrice != null && snap.avgCostKrw != null
+        isForeign && currentPrice != null && snap.avgCostKrw != null
           ? value - snap.avgCostKrw * snap.quantity
           : rawProfit != null
             ? rawProfit * fx
