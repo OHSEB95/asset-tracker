@@ -47,9 +47,15 @@ export async function getPayoutsForMonth(
   payMonth: string,
   accountTypeCode?: string | null
 ): Promise<DividendPayout[]> {
+  const db = getDatabase()
   const holdingRows = queryDividendHoldingRows(accountTypeCode)
   const { rate } = await getUsdKrwRate()
   const monthNum = Number(payMonth.slice(5, 7))
+
+  const actualStmt = db.prepare(
+    `SELECT COALESCE(SUM(amount), 0) AS total, MAX(date) AS latestDate, COUNT(*) AS cnt
+     FROM transactions WHERE holding_id = ? AND type = 'DIVIDEND' AND substr(date, 1, 7) = ?`
+  )
 
   const payouts: DividendPayout[] = []
   for (const h of holdingRows) {
@@ -70,13 +76,20 @@ export async function getPayoutsForMonth(
     if (eligibleQty <= 0) continue
 
     const rawAmount = eligibleQty * h.dividend_per_share
+
+    const actual = actualStmt.get(h.id, payMonth) as { total: number; latestDate: string | null; cnt: number }
+    const hasActual = actual.cnt > 0
+
     payouts.push({
       holdingId: h.id,
       holdingName: h.name,
       accountTypeLabel: h.label_ko,
       amount: rawAmount * fx,
       rawAmount,
-      currency: h.account_type_code === 'FOREIGN_STOCK' ? 'USD' : 'KRW'
+      currency: h.account_type_code === 'FOREIGN_STOCK' ? 'USD' : 'KRW',
+      actualAmount: hasActual ? actual.total * fx : null,
+      rawActualAmount: hasActual ? actual.total : null,
+      actualDate: hasActual ? actual.latestDate : null
     })
   }
 

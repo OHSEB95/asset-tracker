@@ -39,6 +39,19 @@ function formatPayoutAmount(p: DividendPayout): string {
   return `$${formatUsdNumber(p.rawAmount)} (${krw})`
 }
 
+// 실제 배당 수령 여부/금액 - 아직 거래내역에 배당 기록이 없으면 '-'.
+function formatActualPayoutAmount(p: DividendPayout): string {
+  if (p.rawActualAmount == null || p.actualAmount == null) return '-'
+  const krw = formatKrw(p.actualAmount)
+  if (p.currency !== 'USD') return krw
+  return `$${formatUsdNumber(p.rawActualAmount)} (${krw})`
+}
+
+function formatActualDate(dateStr: string): string {
+  const [, m, d] = dateStr.split('-').map(Number)
+  return `${m}월 ${d}일`
+}
+
 // 종목별 배당 상세는 반대로 원화를 앞에, 달러를 괄호에 표기한다.
 function formatKrwWithUsd(krwValue: number, rawValue: number, currency: 'KRW' | 'USD'): string {
   const krw = formatKrw(krwValue)
@@ -52,11 +65,20 @@ interface PayoutGroup {
   payouts: DividendPayout[]
   totalKrw: number
   totalRaw: number
+  totalActualKrw: number
+  totalActualRaw: number
+  hasActual: boolean
 }
 
 function formatGroupTotal(g: PayoutGroup): string {
   if (g.currency !== 'USD') return formatKrw(g.totalKrw)
   return `$${formatUsdNumber(g.totalRaw)} (${formatKrw(g.totalKrw)})`
+}
+
+function formatGroupActualTotal(g: PayoutGroup): string {
+  if (!g.hasActual) return '-'
+  if (g.currency !== 'USD') return formatKrw(g.totalActualKrw)
+  return `$${formatUsdNumber(g.totalActualRaw)} (${formatKrw(g.totalActualKrw)})`
 }
 
 function formatDayInMonth(day: number, baseMonth: string): string {
@@ -146,6 +168,15 @@ function DividendPage(): React.JSX.Element {
     .filter((p) => p.currency === 'USD')
     .reduce((sum, p) => sum + p.rawAmount, 0)
 
+  const hasAnyActual = monthPayouts.some((p) => p.actualAmount != null)
+  const monthPayoutsActualTotal = monthPayouts.reduce((sum, p) => sum + (p.actualAmount ?? 0), 0)
+  const monthPayoutsActualKrwTotal = monthPayouts
+    .filter((p) => p.currency === 'KRW')
+    .reduce((sum, p) => sum + (p.actualAmount ?? 0), 0)
+  const monthPayoutsActualUsdTotal = monthPayouts
+    .filter((p) => p.currency === 'USD')
+    .reduce((sum, p) => sum + (p.rawActualAmount ?? 0), 0)
+
   // 배당일(예상) 날짜 순으로 정렬 - 배당일이 없는 종목은 맨 뒤로.
   const sortedMonthPayouts = [...monthPayouts].sort((a, b) => {
     const dayA = holdings.find((h) => h.id === a.holdingId)?.dividendPayDay ?? null
@@ -164,11 +195,19 @@ function DividendPage(): React.JSX.Element {
         currency: p.currency,
         payouts: [],
         totalKrw: 0,
-        totalRaw: 0
+        totalRaw: 0,
+        totalActualKrw: 0,
+        totalActualRaw: 0,
+        hasActual: false
       }
       g.payouts.push(p)
       g.totalKrw += p.amount
       g.totalRaw += p.rawAmount
+      if (p.actualAmount != null) {
+        g.hasActual = true
+        g.totalActualKrw += p.actualAmount
+        g.totalActualRaw += p.rawActualAmount ?? 0
+      }
       acc[p.accountTypeLabel] = g
       return acc
     }, {})
@@ -293,20 +332,30 @@ function DividendPage(): React.JSX.Element {
                 <th>종목</th>
                 <th>배당락일</th>
                 <th>배당일 (예상)</th>
+                <th>실제 배당일</th>
                 <th>예상 배당액</th>
+                <th>실제 배당</th>
               </tr>
             </thead>
             {payoutGroups.map((g) => (
               <tbody key={g.accountTypeLabel}>
                 <tr className={`payout-group-row ${typeRowClass(g.accountTypeLabel)}`}>
-                  <td colSpan={3}>{g.accountTypeLabel} 합계</td>
+                  <td colSpan={4}>{g.accountTypeLabel} 합계</td>
                   <td>{formatGroupTotal(g)}</td>
+                  <td>{formatGroupActualTotal(g)}</td>
                 </tr>
                 {g.payouts.map((p) => {
                   const holding = holdings.find((h) => h.id === p.holdingId)
                   return (
                     <tr key={p.holdingId} className={typeRowClass(p.accountTypeLabel)}>
-                      <td>{p.holdingName}</td>
+                      <td>
+                        {p.actualDate != null && (
+                          <span className="dividend-received-check" title="이번 달 배당 수령 완료">
+                            ✓{' '}
+                          </span>
+                        )}
+                        {p.holdingName}
+                      </td>
                       <td>
                         {holding?.dividendExDay != null
                           ? formatDayInMonth(
@@ -350,7 +399,9 @@ function DividendPage(): React.JSX.Element {
                           </>
                         )}
                       </td>
+                      <td>{p.actualDate != null ? formatActualDate(p.actualDate) : '-'}</td>
                       <td>{formatPayoutAmount(p)}</td>
+                      <td>{formatActualPayoutAmount(p)}</td>
                     </tr>
                   )
                 })}
@@ -358,7 +409,7 @@ function DividendPage(): React.JSX.Element {
             ))}
             <tfoot>
               <tr>
-                <td colSpan={3}>합계</td>
+                <td colSpan={4}>합계</td>
                 <td>
                   {formatKrw(monthPayoutsTotal)}
                   {monthPayoutsUsdTotal > 0 && (
@@ -371,6 +422,26 @@ function DividendPage(): React.JSX.Element {
                       })}
                       )
                     </>
+                  )}
+                </td>
+                <td>
+                  {hasAnyActual ? (
+                    <>
+                      {formatKrw(monthPayoutsActualTotal)}
+                      {monthPayoutsActualUsdTotal > 0 && (
+                        <>
+                          {' '}
+                          ({formatKrw(monthPayoutsActualKrwTotal)} + $
+                          {monthPayoutsActualUsdTotal.toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2
+                          })}
+                          )
+                        </>
+                      )}
+                    </>
+                  ) : (
+                    '-'
                   )}
                 </td>
               </tr>

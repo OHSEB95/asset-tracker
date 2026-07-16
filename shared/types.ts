@@ -181,6 +181,9 @@ export interface DividendPayout {
   amount: number
   rawAmount: number
   currency: 'KRW' | 'USD'
+  actualAmount: number | null
+  rawActualAmount: number | null
+  actualDate: string | null
 }
 
 export interface DividendOverview {
