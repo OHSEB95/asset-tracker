@@ -17,6 +17,7 @@ import { registerDividendsIpc } from './ipc/dividends'
 import { registerAuthIpc } from './ipc/auth'
 import { registerSyncIpc } from './ipc/sync'
 import { initAutoUpdater } from './services/updater'
+import { backfillForeignStockFxRates, backfillForeignStockRealizedPnlKrw } from './db/queries'
 
 const SESSION_CHECK_INTERVAL_MS = 5 * 60 * 1000
 
@@ -108,6 +109,12 @@ app.whenReady().then(async () => {
     console.error('[auth] 자동 로그인 복원 실패:', err)
   })
   startSessionCheckTimer()
+
+  backfillForeignStockFxRates()
+    .then(() => backfillForeignStockRealizedPnlKrw())
+    .catch((err) => {
+      console.error('[fx] 해외주식 과거 환율/실현손익 소급 반영 실패:', err)
+    })
 
   createWindow()
   initAutoUpdater()

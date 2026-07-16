@@ -56,7 +56,9 @@ function rowToTransaction(row: any): Transaction {
     price: row.price,
     amount: row.amount,
     realizedPnl: row.realized_pnl,
-    note: row.note
+    note: row.note,
+    fxRate: row.fx_rate,
+    realizedPnlKrw: row.realized_pnl_krw
   }
 }
 
@@ -122,23 +124,25 @@ export async function getMonthlySummary(filter: DashboardFilter): Promise<Monthl
 
   const placeholders = accountIds.map(() => '?').join(',')
 
-  // 1) 현금 흐름 집계 (원금/배당/매도손익) - SQL GROUP BY, 해외주식 계좌는 환율 곱해서 KRW로 환산
+  // 1) 현금 흐름 집계 (원금/배당/매도손익) - SQL GROUP BY, 해외주식 계좌는 그 거래 시점의 실제
+  //    환율(fx_rate)로 KRW 환산한다. 아직 소급 반영 전이라 fx_rate가 비어있으면 현재 환율로 대체.
   const flowRows = db
     .prepare(
       `SELECT
          substr(t.date, 1, 7) AS yearMonth,
          SUM(CASE
-               WHEN t.type = 'DEPOSIT' AND a.account_type_code = 'FOREIGN_STOCK' THEN t.amount * ?
+               WHEN t.type = 'DEPOSIT' AND a.account_type_code = 'FOREIGN_STOCK' THEN t.amount * COALESCE(t.fx_rate, ?)
                WHEN t.type = 'DEPOSIT' THEN t.amount
                ELSE 0
              END) AS contribution,
          SUM(CASE
-               WHEN t.type = 'DIVIDEND' AND a.account_type_code = 'FOREIGN_STOCK' THEN t.amount * ?
+               WHEN t.type = 'DIVIDEND' AND a.account_type_code = 'FOREIGN_STOCK' THEN t.amount * COALESCE(t.fx_rate, ?)
                WHEN t.type = 'DIVIDEND' THEN t.amount
                ELSE 0
              END) AS dividends,
          SUM(CASE
-               WHEN t.type = 'SELL' AND a.account_type_code = 'FOREIGN_STOCK' THEN t.realized_pnl * ?
+               WHEN t.type = 'SELL' AND a.account_type_code = 'FOREIGN_STOCK'
+                 THEN COALESCE(t.realized_pnl_krw, t.realized_pnl * COALESCE(t.fx_rate, ?))
                WHEN t.type = 'SELL' THEN t.realized_pnl
                ELSE 0
              END) AS realizedPnl
@@ -219,8 +223,15 @@ export async function getMonthlySummary(filter: DashboardFilter): Promise<Monthl
       const fx = acct.accountTypeCode === 'FOREIGN_STOCK' ? rate : 1
       const acctTx = txUpToMonth.filter((t) => t.accountId === acct.id)
       const acctCash = acctTx.reduce((sum, t) => sum + cashImpact(t), 0)
+      // 원금(principalTotal)은 실제로 그때그때 투입된 원화 금액이라 변하면 안 되므로, 해외주식
+      // 계좌는 오늘 환율이 아니라 각 거래 시점의 실제 환율(fx_rate)로 환산한다. 평가금액
+      // (valuationTotal)은 "지금 이 순간 얼마짜리인지"이므로 그대로 오늘 환율을 쓴다.
+      const acctCashKrw =
+        acct.accountTypeCode === 'FOREIGN_STOCK'
+          ? acctTx.reduce((sum, t) => sum + cashImpact(t) * (t.fxRate ?? rate), 0)
+          : acctCash
       valuationTotal += acctCash * fx
-      principalTotal += acctCash * fx
+      principalTotal += acctCashKrw
 
       const acctHoldings = holdings.filter((h) => h.accountId === acct.id)
       for (const holding of acctHoldings) {
@@ -246,9 +257,9 @@ export async function getMonthlySummary(filter: DashboardFilter): Promise<Monthl
             (t.type === 'BUY' || t.type === 'SELL' || t.type === 'ADJUST')
         )
         if (holdingTx.length === 0) continue
-        const state = replayHoldingState(holdingTx)
+        const state = replayHoldingState(holdingTx, rate)
         if (state.quantity <= 0) continue
-        if (state.avgCost != null) principalTotal += state.quantity * state.avgCost * fx
+        if (state.avgCostKrw != null) principalTotal += state.quantity * state.avgCostKrw
         const price = forwardFilledPrice(holding.id, month) ?? state.avgCost
         if (price != null) valuationTotal += state.quantity * price * fx
       }
@@ -352,7 +363,7 @@ export async function getPortfolioSnapshot(
     const isSavings = acct.account_type_code === 'YOUTH_SAVINGS'
     let hasHoldingRows = false
     for (const h of holdingRows) {
-      const snap = getHoldingSnapshot(h.id)
+      const snap = getHoldingSnapshot(h.id, rate)
 
       if (isSavings) {
         const balance = snap.currentValuation ?? 0
@@ -384,7 +395,14 @@ export async function getPortfolioSnapshot(
       const value = rawValue * fx
       const rawProfit =
         currentPrice != null && snap.avgCost != null ? (currentPrice - snap.avgCost) * snap.quantity : null
-      const profit = rawProfit != null ? rawProfit * fx : null
+      // 손익(원화)은 "오늘 환율 x 달러 손익"이 아니라 "지금 평가금액 - 실제 매수 시점 환율로 환산한
+      // 원가"로 계산한다 - 해외주식은 그 사이 환율이 바뀌면 두 값이 크게 달라질 수 있어서다.
+      const profit =
+        currentPrice != null && snap.avgCostKrw != null
+          ? value - snap.avgCostKrw * snap.quantity
+          : rawProfit != null
+            ? rawProfit * fx
+            : null
       rows.push({
         kind: 'holding',
         accountId: acct.id,

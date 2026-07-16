@@ -65,6 +65,38 @@ export async function getUsdKrwRate(): Promise<{ rate: number; fetchedAt: string
   }
 }
 
+// 과거 특정 날짜의 실제 USD/KRW 환율(ECB 기준, Frankfurter). 날짜는 바뀌지 않는 값이므로 영구 캐시.
+const historicalRateCache = new Map<string, number>()
+
+async function fetchHistoricalUsdKrwRateRaw(date: string): Promise<number> {
+  const cached = historicalRateCache.get(date)
+  if (cached != null) return cached
+  const data = await fetchJson(`https://api.frankfurter.dev/v1/${date}?from=USD&to=KRW`)
+  const rate = data?.rates?.KRW
+  if (typeof rate !== 'number') throw new Error('과거 환율 정보를 찾을 수 없습니다')
+  historicalRateCache.set(date, rate)
+  return rate
+}
+
+/** 거래 시점 실제 환율. 조회 실패 시 현재 환율로 대체(절대 throw 안 함) — 신규 거래 저장 시 사용. */
+export async function getHistoricalUsdKrwRate(date: string): Promise<number> {
+  try {
+    return await fetchHistoricalUsdKrwRateRaw(date)
+  } catch {
+    const { rate } = await getUsdKrwRate()
+    return rate
+  }
+}
+
+/** 조회 실패 시 null(대체값 사용 안 함) — 기존 거래 소급 반영(backfill) 전용, 실패하면 다음에 재시도. */
+export async function tryFetchHistoricalUsdKrwRate(date: string): Promise<number | null> {
+  try {
+    return await fetchHistoricalUsdKrwRateRaw(date)
+  } catch {
+    return null
+  }
+}
+
 async function fetchYahooForeignPrice(symbol: string): Promise<PriceFetchResult> {
   const data = await fetchJson(
     `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol.trim())}`

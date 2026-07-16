@@ -151,6 +151,19 @@ function migrateTransactionsSortOrder(db: Database.Database): void {
   db.exec(`ALTER TABLE transactions ADD COLUMN sort_order INTEGER;`)
 }
 
+/**
+ * 거래내역에 fx_rate(거래 시점 실제 USD/KRW 환율)와 realized_pnl_krw(매도손익의 원화 환산액,
+ * 매수 시점 환율 기준 원가로 계산) 컬럼 추가 - 해외주식 관련 금액의 원화 환산이 항상
+ * "오늘 환율"로만 재계산되던 문제를 고치기 위함. 신규/기존 해외주식 거래는 각각 생성 시점
+ * 자동 조회 또는 앱 시작 시 백그라운드 소급 조회(backfillForeignStockFxRates 등)로 채워짐.
+ */
+function migrateTransactionsFxRate(db: Database.Database): void {
+  db.exec(`
+    ALTER TABLE transactions ADD COLUMN fx_rate REAL;
+    ALTER TABLE transactions ADD COLUMN realized_pnl_krw REAL;
+  `)
+}
+
 export const MIGRATIONS: Migration[] = [
   { version: 1, up: migrateTransactionsAdjustCash },
   { version: 2, up: migrateYouthSavingsLabel },
@@ -158,7 +171,8 @@ export const MIGRATIONS: Migration[] = [
   { version: 4, up: migrateSavingsHoldingAdjustShape },
   { version: 5, up: migrateHoldingsDividendColumns },
   { version: 6, up: migrateHoldingsDividendDayColumns },
-  { version: 7, up: migrateTransactionsSortOrder }
+  { version: 7, up: migrateTransactionsSortOrder },
+  { version: 8, up: migrateTransactionsFxRate }
 ]
 
 export const LATEST_SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1].version

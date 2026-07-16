@@ -18,17 +18,17 @@ export function registerTransactionsIpc(): void {
     listTransactions(filter)
   )
 
-  ipcMain.handle(IPC.TRANSACTIONS_CREATE, (_e, input: TransactionInput) => {
+  ipcMain.handle(IPC.TRANSACTIONS_CREATE, async (_e, input: TransactionInput) => {
     try {
-      return { data: createTransaction(input) }
+      return { data: await createTransaction(input) }
     } catch (err) {
       return { error: toErrorMessage(err) }
     }
   })
 
-  ipcMain.handle(IPC.TRANSACTIONS_UPDATE, (_e, id: number, input: TransactionInput) => {
+  ipcMain.handle(IPC.TRANSACTIONS_UPDATE, async (_e, id: number, input: TransactionInput) => {
     try {
-      return { data: updateTransaction(id, input) }
+      return { data: await updateTransaction(id, input) }
     } catch (err) {
       return { error: toErrorMessage(err) }
     }

@@ -2,6 +2,8 @@ import { getDatabase } from '../index'
 import type { Transaction, TransactionInput, TransactionListFilter } from '@shared/types'
 import { replayHoldingState } from './replay'
 import { getHoldingAccountTypeCode } from './holdings'
+import { getAccountById } from './accounts'
+import { getHistoricalUsdKrwRate, tryFetchHistoricalUsdKrwRate } from '../../services/priceService'
 
 function rowToTransaction(row: any): Transaction {
   return {
@@ -14,8 +16,17 @@ function rowToTransaction(row: any): Transaction {
     price: row.price,
     amount: row.amount,
     realizedPnl: row.realized_pnl,
-    note: row.note
+    note: row.note,
+    fxRate: row.fx_rate,
+    realizedPnlKrw: row.realized_pnl_krw
   }
+}
+
+/** 해외주식 계좌 거래면 그 거래 날짜의 실제 환율을 자동 조회해 저장한다(그 외 계좌는 null). */
+async function resolveFxRate(accountId: number, date: string): Promise<number | null> {
+  const account = getAccountById(accountId)
+  if (account?.accountTypeCode !== 'FOREIGN_STOCK') return null
+  return getHistoricalUsdKrwRate(date)
 }
 
 /** accountId가 있으면 해당 계좌만, 없고 accountTypeCode가 있으면 그 유형의 모든 계좌, 둘 다 없으면 전체 거래를 반환한다. */
@@ -83,15 +94,17 @@ export function moveTransactionOrder(id: number, direction: 'up' | 'down'): void
 
 /**
  * BUY/SELL/ADJUST transactions for a holding, up to and including a given date, ordered for replay.
- * excludeId가 주어지면 그 거래는 리플레이에서 제외한다 (수정 중인 거래 자기 자신을 빼고 계산할 때 사용).
+ * excludeId가 주어지면 그 거래 자신은 물론, 같은 날짜에 그 거래보다 "나중에"(id가 더 큰) 만들어진
+ * 거래도 제외한다 - 그래야 나중에(다른 날 혹은 같은 날 이후) 추가된 거래가 이 거래 "이전 상태"
+ * 계산에 잘못 끼어들지 않는다(수정/소급 재계산 시 사용, 신규 생성 시엔 @excludeId가 없어 전부 포함).
  */
 function getHoldingTransactionsUpTo(holdingId: number, date: string, excludeId?: number): Transaction[] {
   const db = getDatabase()
   const rows = db
     .prepare(
       `SELECT * FROM transactions
-       WHERE holding_id = @holdingId AND type IN ('BUY','SELL','ADJUST') AND date <= @date
-         AND (@excludeId IS NULL OR id != @excludeId)
+       WHERE holding_id = @holdingId AND type IN ('BUY','SELL','ADJUST')
+         AND (date < @date OR (date = @date AND (@excludeId IS NULL OR id < @excludeId)))
        ORDER BY date ASC, id ASC`
     )
     .all({ holdingId, date, excludeId: excludeId ?? null })
@@ -107,11 +120,19 @@ interface TransactionRow {
   price: number | null
   amount: number | null
   realizedPnl: number | null
+  realizedPnlKrw: number | null
   note: string | null
 }
 
-/** type별 필수값 검증 + SELL의 realizedPnl 계산. excludeId는 수정 시 자기 자신을 리플레이에서 빼기 위함. */
-function computeTransactionRow(input: TransactionInput, excludeId?: number): TransactionRow {
+/**
+ * type별 필수값 검증 + SELL의 realizedPnl 계산. excludeId는 수정 시 자기 자신을 리플레이에서 빼기 위함.
+ * fxRate는 이 거래(해외주식이면 그 시점 실제 환율, 아니면 null) - SELL의 원화 실현손익 계산에 사용.
+ */
+function computeTransactionRow(
+  input: TransactionInput,
+  fxRate: number | null,
+  excludeId?: number
+): TransactionRow {
   const isHoldingAdjust = input.type === 'ADJUST' && !!input.holdingId
   const isCashAdjust = input.type === 'ADJUST' && !input.holdingId
   const isSavingsHoldingTx =
@@ -132,10 +153,11 @@ function computeTransactionRow(input: TransactionInput, excludeId?: number): Tra
   }
 
   let realizedPnl: number | null = null
+  let realizedPnlKrw: number | null = null
 
   if (input.type === 'SELL') {
     const priorTx = getHoldingTransactionsUpTo(input.holdingId!, input.date, excludeId)
-    const state = replayHoldingState(priorTx)
+    const state = replayHoldingState(priorTx, fxRate ?? 1)
     if (input.quantity! > state.quantity) {
       throw new Error(
         `보유수량(${state.quantity.toLocaleString()})보다 많은 수량을 매도할 수 없습니다.`
@@ -143,6 +165,11 @@ function computeTransactionRow(input: TransactionInput, excludeId?: number): Tra
     }
     const avgCostAtDate = state.avgCost ?? 0
     realizedPnl = (input.price! - avgCostAtDate) * input.quantity!
+    // 실현손익(원화) = (매도가 x 매도 시점 환율) - 매수 시점 환율로 환산한 원가.
+    // 오늘 환율을 곱하면 매수-매도 사이 환율이 바뀔 때마다 과거 손익이 계속 재계산되므로 이렇게 계산.
+    if (fxRate != null && state.avgCostKrw != null) {
+      realizedPnlKrw = (input.price! * fxRate - state.avgCostKrw) * input.quantity!
+    }
   }
 
   const isCashType =
@@ -165,21 +192,23 @@ function computeTransactionRow(input: TransactionInput, excludeId?: number): Tra
     price: isCashType ? null : (input.price ?? null),
     amount: isCashType ? input.amount! : null,
     realizedPnl,
+    realizedPnlKrw,
     note: input.note ?? null
   }
 }
 
-export function createTransaction(input: TransactionInput): Transaction {
+export async function createTransaction(input: TransactionInput): Promise<Transaction> {
   const db = getDatabase()
-  const row = computeTransactionRow(input)
+  const fxRate = await resolveFxRate(input.accountId, input.date)
+  const row = computeTransactionRow(input, fxRate)
 
   const result = db
     .prepare(
       `INSERT INTO transactions
-         (account_id, holding_id, type, date, quantity, price, amount, realized_pnl, note)
-       VALUES (@accountId, @holdingId, @type, @date, @quantity, @price, @amount, @realizedPnl, @note)`
+         (account_id, holding_id, type, date, quantity, price, amount, realized_pnl, note, fx_rate, realized_pnl_krw)
+       VALUES (@accountId, @holdingId, @type, @date, @quantity, @price, @amount, @realizedPnl, @note, @fxRate, @realizedPnlKrw)`
     )
-    .run(row)
+    .run({ ...row, fxRate })
 
   const created = db.prepare(`SELECT * FROM transactions WHERE id = ?`).get(result.lastInsertRowid)
   return rowToTransaction(created)
@@ -203,7 +232,7 @@ function assertNoLaterSell(holdingId: number, date: string, id: number, action: 
   }
 }
 
-export function updateTransaction(id: number, input: TransactionInput): Transaction {
+export async function updateTransaction(id: number, input: TransactionInput): Promise<Transaction> {
   const db = getDatabase()
   const existing = db.prepare(`SELECT * FROM transactions WHERE id = ?`).get(id) as any
   if (!existing) {
@@ -214,7 +243,8 @@ export function updateTransaction(id: number, input: TransactionInput): Transact
     assertNoLaterSell(existing.holding_id, existing.date, existing.id, '수정')
   }
 
-  const row = computeTransactionRow(input, id)
+  const fxRate = await resolveFxRate(input.accountId, input.date)
+  const row = computeTransactionRow(input, fxRate, id)
 
   db.prepare(
     `UPDATE transactions SET
@@ -226,9 +256,11 @@ export function updateTransaction(id: number, input: TransactionInput): Transact
        price = @price,
        amount = @amount,
        realized_pnl = @realizedPnl,
-       note = @note
+       note = @note,
+       fx_rate = @fxRate,
+       realized_pnl_krw = @realizedPnlKrw
      WHERE id = @id`
-  ).run({ ...row, id })
+  ).run({ ...row, fxRate, id })
 
   const updated = db.prepare(`SELECT * FROM transactions WHERE id = ?`).get(id)
   return rowToTransaction(updated)
@@ -244,4 +276,58 @@ export function deleteTransaction(id: number): void {
   }
 
   db.prepare(`DELETE FROM transactions WHERE id = ?`).run(id)
+}
+
+/**
+ * fx_rate 도입 이전에 저장된 해외주식 거래는 fx_rate가 비어있으므로, 앱 시작 시 한 번씩 그
+ * 거래 날짜의 실제 과거 환율을 조회해 채워 넣는다. 조회 실패(네트워크 등)한 행은 NULL로 남겨
+ * 다음 실행 때 다시 시도한다 - 절대 "현재 환율"로 대체해 채우지 않는다(그러면 원래 버그와 같아짐).
+ */
+export async function backfillForeignStockFxRates(): Promise<void> {
+  const db = getDatabase()
+  const rows = db
+    .prepare(
+      `SELECT t.id, t.date FROM transactions t
+       JOIN accounts a ON a.id = t.account_id
+       WHERE a.account_type_code = 'FOREIGN_STOCK' AND t.fx_rate IS NULL`
+    )
+    .all() as Array<{ id: number; date: string }>
+
+  const update = db.prepare(`UPDATE transactions SET fx_rate = ? WHERE id = ?`)
+  for (const row of rows) {
+    const rate = await tryFetchHistoricalUsdKrwRate(row.date)
+    if (rate != null) update.run(rate, row.id)
+  }
+}
+
+/**
+ * fx_rate가 채워진 뒤에 실행해야 함(매수 원가의 환산 원화 원가가 필요하므로) - 해외주식 매도
+ * 거래의 원화 실현손익을 매수 시점 환율 기준으로 다시 계산해 채워 넣는다.
+ */
+export async function backfillForeignStockRealizedPnlKrw(): Promise<void> {
+  const db = getDatabase()
+  const sells = db
+    .prepare(
+      `SELECT t.id, t.holding_id, t.date, t.price, t.quantity, t.fx_rate FROM transactions t
+       JOIN accounts a ON a.id = t.account_id
+       WHERE a.account_type_code = 'FOREIGN_STOCK' AND t.type = 'SELL'
+         AND t.realized_pnl_krw IS NULL AND t.fx_rate IS NOT NULL`
+    )
+    .all() as Array<{
+    id: number
+    holding_id: number
+    date: string
+    price: number
+    quantity: number
+    fx_rate: number
+  }>
+
+  const update = db.prepare(`UPDATE transactions SET realized_pnl_krw = ? WHERE id = ?`)
+  for (const sell of sells) {
+    const priorTx = getHoldingTransactionsUpTo(sell.holding_id, sell.date, sell.id)
+    const state = replayHoldingState(priorTx, sell.fx_rate)
+    if (state.avgCostKrw == null) continue
+    const realizedPnlKrw = (sell.price * sell.fx_rate - state.avgCostKrw) * sell.quantity
+    update.run(realizedPnlKrw, sell.id)
+  }
 }

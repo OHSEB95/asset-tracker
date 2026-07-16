@@ -121,7 +121,9 @@ function rowToTransaction(row: any): Transaction {
     price: row.price,
     amount: row.amount,
     realizedPnl: row.realized_pnl,
-    note: row.note
+    note: row.note,
+    fxRate: row.fx_rate,
+    realizedPnlKrw: row.realized_pnl_krw
   }
 }
 
@@ -140,7 +142,7 @@ function getLatestSnapshot(
   return row ? { price: row.price, yearMonth: row.year_month } : null
 }
 
-export function getHoldingSnapshot(holdingId: number): HoldingSnapshot {
+export function getHoldingSnapshot(holdingId: number, fallbackFxRate = 1): HoldingSnapshot {
   const db = getDatabase()
 
   if (getHoldingAccountTypeCode(holdingId) === 'YOUTH_SAVINGS') {
@@ -155,6 +157,7 @@ export function getHoldingSnapshot(holdingId: number): HoldingSnapshot {
       holdingId,
       quantity: null,
       avgCost: null,
+      avgCostKrw: null,
       lastKnownPrice: null,
       lastKnownPriceMonth: null,
       currentValuation: balance
@@ -166,7 +169,7 @@ export function getHoldingSnapshot(holdingId: number): HoldingSnapshot {
       `SELECT * FROM transactions WHERE holding_id = ? AND type IN ('BUY','SELL','ADJUST') ORDER BY date ASC, id ASC`
     )
     .all(holdingId)
-  const state = replayHoldingState(rows.map(rowToTransaction))
+  const state = replayHoldingState(rows.map(rowToTransaction), fallbackFxRate)
 
   const snapshot = getLatestSnapshot(holdingId, currentYearMonth())
   const priceForValuation = snapshot?.price ?? state.avgCost
@@ -175,6 +178,7 @@ export function getHoldingSnapshot(holdingId: number): HoldingSnapshot {
     holdingId,
     quantity: state.quantity,
     avgCost: state.avgCost,
+    avgCostKrw: state.avgCostKrw,
     lastKnownPrice: snapshot?.price ?? null,
     lastKnownPriceMonth: snapshot?.yearMonth ?? null,
     currentValuation: priceForValuation != null ? state.quantity * priceForValuation : null

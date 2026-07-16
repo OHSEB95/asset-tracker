@@ -223,8 +223,8 @@ export async function pullFromFirestore(): Promise<void> {
 
     const insertTransaction = db.prepare(
       `INSERT INTO transactions
-         (id, account_id, holding_id, type, date, quantity, price, amount, realized_pnl, note)
-       VALUES (@id, @accountId, @holdingId, @type, @date, @quantity, @price, @amount, @realizedPnl, @note)`
+         (id, account_id, holding_id, type, date, quantity, price, amount, realized_pnl, note, fx_rate, realized_pnl_krw)
+       VALUES (@id, @accountId, @holdingId, @type, @date, @quantity, @price, @amount, @realizedPnl, @note, @fxRate, @realizedPnlKrw)`
     )
     for (const d of transactionDocs) {
       const t = d.fields as unknown as Transaction
@@ -238,7 +238,9 @@ export async function pullFromFirestore(): Promise<void> {
         price: t.price ?? null,
         amount: t.amount ?? null,
         realizedPnl: t.realizedPnl ?? null,
-        note: t.note ?? null
+        note: t.note ?? null,
+        fxRate: t.fxRate ?? null,
+        realizedPnlKrw: t.realizedPnlKrw ?? null
       })
     }
   })

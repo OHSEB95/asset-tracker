@@ -59,6 +59,8 @@ export interface Transaction {
   amount: number | null
   realizedPnl: number | null
   note: string | null
+  fxRate: number | null
+  realizedPnlKrw: number | null
 }
 
 export interface TransactionInput {
@@ -83,6 +85,7 @@ export interface HoldingSnapshot {
   holdingId: number
   quantity: number | null
   avgCost: number | null
+  avgCostKrw: number | null
   lastKnownPrice: number | null
   lastKnownPriceMonth: string | null
   currentValuation: number | null
