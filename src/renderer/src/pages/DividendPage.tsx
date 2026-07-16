@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useAccountsContext } from '../state/AccountsContext'
-import type { DividendOverview, DividendPayout, Holding, HoldingInput } from '@shared/types'
+import type { DividendOverview, DividendPayout } from '@shared/types'
 import DividendChart from '../components/charts/DividendChart'
 import { typeRowClass } from '../utils/accountTypeStyle'
 
@@ -110,13 +110,10 @@ function exMonthForThisPayment(exDay: number, payDay: number | null, nowMonth: s
 }
 
 function DividendPage(): React.JSX.Element {
-  const { holdings, refresh } = useAccountsContext()
+  const { holdings } = useAccountsContext()
   const [year, setYear] = useState(currentYear())
   const [overview, setOverview] = useState<DividendOverview | null>(null)
   const [loading, setLoading] = useState(true)
-  const [editingPayDayId, setEditingPayDayId] = useState<number | null>(null)
-  const [payDayInput, setPayDayInput] = useState('')
-  const [payDaySaving, setPayDaySaving] = useState(false)
 
   const [payoutMonth, setPayoutMonth] = useState(currentYearMonth())
   const [monthPayouts, setMonthPayouts] = useState<DividendPayout[]>([])
@@ -213,40 +210,6 @@ function DividendPage(): React.JSX.Element {
     }, {})
   ).sort((a, b) => b.totalKrw - a.totalKrw)
 
-  function startEditPayDay(holding: Holding): void {
-    setEditingPayDayId(holding.id)
-    setPayDayInput(holding.dividendPayDay != null ? String(holding.dividendPayDay) : '')
-  }
-
-  function cancelEditPayDay(): void {
-    setEditingPayDayId(null)
-  }
-
-  async function savePayDay(holding: Holding): Promise<void> {
-    const day = parseInt(payDayInput, 10)
-    if (!Number.isFinite(day) || day < 1 || day > 31) return
-    setPayDaySaving(true)
-    try {
-      const input: HoldingInput = {
-        accountId: holding.accountId,
-        name: holding.name,
-        priceSymbol: holding.priceSymbol,
-        priceSource: holding.priceSource,
-        dividendPerShare: holding.dividendPerShare,
-        dividendCycleType: holding.dividendCycleType,
-        dividendMonths: holding.dividendMonths,
-        dividendExDay: holding.dividendExDay,
-        dividendPayDay: day
-      }
-      await window.api.holdings.update(holding.id, input)
-      setEditingPayDayId(null)
-      await refresh()
-      const data = await window.api.dividends.getPayoutsForMonth(payoutMonth, null)
-      setMonthPayouts(data)
-    } finally {
-      setPayDaySaving(false)
-    }
-  }
 
   return (
     <div className="page">
@@ -365,39 +328,9 @@ function DividendPage(): React.JSX.Element {
                           : '-'}
                       </td>
                       <td>
-                        {editingPayDayId === p.holdingId ? (
-                          <>
-                            <input
-                              type="number"
-                              min={1}
-                              max={31}
-                              value={payDayInput}
-                              onChange={(e) => setPayDayInput(e.target.value)}
-                              className="pay-day-input"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => holding && savePayDay(holding)}
-                              disabled={payDaySaving}
-                            >
-                              저장
-                            </button>
-                            <button type="button" onClick={cancelEditPayDay} disabled={payDaySaving}>
-                              취소
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            {holding?.dividendPayDay != null
-                              ? formatDayInMonth(holding.dividendPayDay, payoutMonth)
-                              : '-'}
-                            {holding && (
-                              <button type="button" className="ghost-button" onClick={() => startEditPayDay(holding)}>
-                                수정
-                              </button>
-                            )}
-                          </>
-                        )}
+                        {holding?.dividendPayDay != null
+                          ? formatDayInMonth(holding.dividendPayDay, payoutMonth)
+                          : '-'}
                       </td>
                       <td>{p.actualDate != null ? formatActualDate(p.actualDate) : '-'}</td>
                       <td>{formatPayoutAmount(p)}</td>

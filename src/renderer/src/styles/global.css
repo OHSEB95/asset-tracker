@@ -605,10 +605,6 @@ tr.tx-row-dividend {
   width: 120px;
 }
 
-.pay-day-input {
-  width: 60px;
-}
-
 .row-actions {
   display: flex;
   gap: 6px;
@@ -820,7 +816,7 @@ td.loss {
 
 .payout-total-table th:nth-child(1),
 .payout-total-table td:nth-child(1) {
-  width: 32%;
+  width: 35%;
 }
 
 .payout-total-table th:nth-child(2),
@@ -830,7 +826,7 @@ td.loss {
 
 .payout-total-table th:nth-child(3),
 .payout-total-table td:nth-child(3) {
-  width: 14%;
+  width: 11%;
 }
 
 .payout-total-table th:nth-child(4),
