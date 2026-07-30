@@ -43,20 +43,21 @@ function buildAiCopyText(portfolio: PortfolioSnapshot, filterLabel: string): str
   const lines: string[] = []
   lines.push(`# 자산현황 (${todayDate()} 기준, 필터: ${filterLabel})`)
   lines.push('')
-  lines.push('| 구분 | 종목 | 보유수량 | 평단가 | 현재가 | 가치(원화) | 손익(원화) | 비중 |')
-  lines.push('|---|---|---|---|---|---|---|---|')
+  lines.push('| 구분 | 종목 | 보유수량 | 평단가 | 현재가 | 가치(원화) | 가치(달러) | 손익(원화) | 비중 |')
+  lines.push('|---|---|---|---|---|---|---|---|---|')
   for (const r of portfolio.rows) {
     const qty = r.quantity != null ? r.quantity.toLocaleString() : '-'
     const avgCost = r.avgCost != null ? formatMoney(r.avgCost, r.currency) : '-'
     const currentPrice = r.currentPrice != null ? formatMoney(r.currentPrice, r.currency) : '-'
     const value = formatKrw(r.value)
+    const usdValue = formatUsdValue(r.currency, r.rawValue)
     const profit = r.profit != null ? formatKrw(r.profit) : '-'
     lines.push(
-      `| ${r.accountTypeLabel} | ${r.label} | ${qty} | ${avgCost} | ${currentPrice} | ${value} | ${profit} | ${r.weightPercent.toFixed(2)}% |`
+      `| ${r.accountTypeLabel} | ${r.label} | ${qty} | ${avgCost} | ${currentPrice} | ${value} | ${usdValue} | ${profit} | ${r.weightPercent.toFixed(2)}% |`
     )
   }
   lines.push(
-    `| 합계 |  |  |  |  | ${formatKrw(portfolio.totalValue)} | ${formatKrw(portfolio.totalProfit)} | 100.00% |`
+    `| 합계 |  |  |  |  | ${formatKrw(portfolio.totalValue)} |  | ${formatKrw(portfolio.totalProfit)} | 100.00% |`
   )
   if (portfolio.pricesUpdatedAt) {
     lines.push('')
