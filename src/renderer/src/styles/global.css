@@ -816,32 +816,32 @@ td.loss {
 
 .payout-total-table th:nth-child(1),
 .payout-total-table td:nth-child(1) {
-  width: 35%;
+  width: 30%;
 }
 
 .payout-total-table th:nth-child(2),
 .payout-total-table td:nth-child(2) {
-  width: 11%;
+  width: 9%;
 }
 
 .payout-total-table th:nth-child(3),
 .payout-total-table td:nth-child(3) {
-  width: 11%;
+  width: 9%;
 }
 
 .payout-total-table th:nth-child(4),
 .payout-total-table td:nth-child(4) {
-  width: 11%;
+  width: 9%;
 }
 
 .payout-total-table th:nth-child(5),
 .payout-total-table td:nth-child(5) {
-  width: 16%;
+  width: 21%;
 }
 
 .payout-total-table th:nth-child(6),
 .payout-total-table td:nth-child(6) {
-  width: 16%;
+  width: 22%;
 }
 
 .dividend-received-check {
