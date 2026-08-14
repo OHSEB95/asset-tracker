@@ -85,6 +85,7 @@ app.whenReady().then(async () => {
     openDatabase(settings.dataDirPath!)
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
+    console.error('[db] 데이터베이스 열기 실패:', err)
     dialog.showErrorBox(
       '데이터베이스를 열 수 없습니다',
       `${settings.dataDirPath}\n\n${message}\n\n` +

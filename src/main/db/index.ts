@@ -64,7 +64,6 @@ export function openDatabase(dataDir: string): Database.Database {
   // WAL 대신 기본 rollback journal 유지: iCloud/OneDrive 동기화 시 -wal/-shm
   // 사이드카 파일이 따로 동기화되며 깨질 위험을 피하기 위함.
   instance.pragma('journal_mode = DELETE')
-  instance.pragma('foreign_keys = ON')
 
   const integrity = instance.pragma('integrity_check', { simple: true })
   if (integrity !== 'ok') {
@@ -77,8 +76,16 @@ export function openDatabase(dataDir: string): Database.Database {
   if (isNewDb) {
     markAsLatestSchema(instance)
   } else {
+    // 마이그레이션 중엔 foreign_keys를 명시적으로 꺼둔다 - rename+재생성 방식 마이그레이션(예:
+    // holdings 테이블) 중에 foreign_keys=ON이면 RENAME TABLE이 다른 테이블의 참조(예:
+    // transactions.holding_id)를 자동으로 옛 이름(_old)으로 바꿔버려서, 이후
+    // DROP TABLE ..._old가 FK 위반으로 실패한다.
+    instance.pragma('foreign_keys = OFF')
     runPendingMigrations(instance)
   }
+
+  // 정상 사용 시점부터는 참조 무결성을 강제한다(마이그레이션 완료 후에만 켬).
+  instance.pragma('foreign_keys = ON')
 
   db = instance
   currentDataDir = dataDir
