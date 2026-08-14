@@ -129,6 +129,11 @@ body {
   font-size: 13px;
 }
 
+.field-gold-note {
+  flex-basis: 100%;
+  margin: 0;
+}
+
 .success-text {
   color: #16a34a;
   font-size: 13px;

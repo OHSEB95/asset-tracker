@@ -21,6 +21,12 @@ async function fetchJson(url: string): Promise<any> {
   return res.json()
 }
 
+async function fetchText(url: string): Promise<string> {
+  const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  return res.text()
+}
+
 async function fetchCoingeckoPrice(symbol: string): Promise<PriceFetchResult> {
   const id = symbol.trim().toLowerCase() === 'btc' ? 'bitcoin' : symbol.trim().toLowerCase()
   const data = await fetchJson(
@@ -97,6 +103,17 @@ export async function tryFetchHistoricalUsdKrwRate(date: string): Promise<number
   }
 }
 
+// KRX 금현물(예: M04020100)은 네이버 증권의 일반 종목 데이터베이스에 없어서 별도 "국내 금시세"
+// 페이지(은행 골드뱅킹 기준가, 1g 단위)를 대신 쓴다 - 실제 KRX 체결가와 완전히 같지는 않은 근사치.
+// 페이지 자체는 EUC-KR이라 한글은 깨지지만, 필요한 숫자는 ASCII라 그대로 정규식으로 뽑아낼 수 있다.
+async function fetchNaverGoldPrice(): Promise<PriceFetchResult> {
+  const html = await fetchText('https://finance.naver.com/marketindex/goldDailyQuote.naver')
+  const match = html.match(/<td class="date">[\d.]+<\/td>\s*<td class="num">([\d,]+\.\d+)<\/td>/)
+  const price = match ? Number(match[1].replace(/,/g, '')) : NaN
+  if (!price || Number.isNaN(price)) throw new Error('금 시세 정보를 찾을 수 없습니다')
+  return { price, currency: 'KRW', fetchedAt: new Date().toISOString(), source: 'naver_gold' }
+}
+
 async function fetchYahooForeignPrice(symbol: string): Promise<PriceFetchResult> {
   const data = await fetchJson(
     `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol.trim())}`
@@ -114,11 +131,15 @@ async function fetchYahooForeignPrice(symbol: string): Promise<PriceFetchResult>
 export async function fetchPriceForHolding(
   holding: Holding
 ): Promise<PriceFetchResult | PriceFetchError> {
-  if (!holding.priceSymbol || !holding.priceSource) {
+  if (!holding.priceSource) {
+    return { error: '이 보유종목에는 시세 조회용 심볼이 설정되어 있지 않습니다.' }
+  }
+  // naver_gold는 종목별 심볼이 필요 없다(국내 금시세 하나뿐) - 그 외 소스는 심볼 필수.
+  if (holding.priceSource !== 'naver_gold' && !holding.priceSymbol) {
     return { error: '이 보유종목에는 시세 조회용 심볼이 설정되어 있지 않습니다.' }
   }
 
-  const key = cacheKey(holding.priceSource, holding.priceSymbol)
+  const key = cacheKey(holding.priceSource, holding.priceSymbol ?? 'GOLD')
   const cached = priceCache.get(key)
   if (cached && cached.expiresAt > Date.now()) return cached.result
 
@@ -126,13 +147,16 @@ export async function fetchPriceForHolding(
     let result: PriceFetchResult
     switch (holding.priceSource) {
       case 'coingecko':
-        result = await fetchCoingeckoPrice(holding.priceSymbol)
+        result = await fetchCoingeckoPrice(holding.priceSymbol!)
         break
       case 'naver':
-        result = await fetchNaverDomesticPrice(holding.priceSymbol)
+        result = await fetchNaverDomesticPrice(holding.priceSymbol!)
         break
       case 'yahoo':
-        result = await fetchYahooForeignPrice(holding.priceSymbol)
+        result = await fetchYahooForeignPrice(holding.priceSymbol!)
+        break
+      case 'naver_gold':
+        result = await fetchNaverGoldPrice()
         break
       default:
         return { error: `알 수 없는 시세 소스: ${holding.priceSource}` }

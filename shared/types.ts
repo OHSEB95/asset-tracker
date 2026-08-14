@@ -16,7 +16,7 @@ export interface AccountInput {
   name: string
 }
 
-export type PriceSource = 'coingecko' | 'naver' | 'yahoo'
+export type PriceSource = 'coingecko' | 'naver' | 'yahoo' | 'naver_gold'
 
 export type DividendCycleType = 'MONTHLY' | 'CUSTOM'
 

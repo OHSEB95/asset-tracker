@@ -7,7 +7,8 @@ import type { AccountInput, DividendCycleType, Holding, HoldingInput, HoldingSna
 const PRICE_SOURCE_LABEL: Record<PriceSource, string> = {
   coingecko: '코인게코 (비트코인 등)',
   naver: '네이버 금융 (국내주식)',
-  yahoo: '야후 파이낸스 (해외주식)'
+  yahoo: '야후 파이낸스 (해외주식)',
+  naver_gold: '네이버 국내 금시세 (1g 기준)'
 }
 
 const ALL_MONTHS = Array.from({ length: 12 }, (_, i) => i + 1)
@@ -217,14 +218,21 @@ function HoldingsPanel({ accountId }: { accountId: number }): React.JSX.Element 
             ))}
           </select>
         </label>
-        <label className="field-symbol">
-          심볼/티커
-          <input
-            value={form.priceSymbol ?? ''}
-            onChange={(e) => setForm({ ...form, priceSymbol: e.target.value })}
-            placeholder="예: BTC, 005930, AAPL"
-          />
-        </label>
+        {form.priceSource !== 'naver_gold' && (
+          <label className="field-symbol">
+            심볼/티커
+            <input
+              value={form.priceSymbol ?? ''}
+              onChange={(e) => setForm({ ...form, priceSymbol: e.target.value })}
+              placeholder="예: BTC, 005930, AAPL"
+            />
+          </label>
+        )}
+        {form.priceSource === 'naver_gold' && (
+          <p className="muted field-gold-note">
+            심볼 입력 불필요 · 이 종목의 보유수량은 "주"가 아니라 "g"(그램) 단위로 입력해주세요.
+          </p>
+        )}
         <label className="field-dividend-amount">
           1주 배당금{isForeign ? ' ($)' : ' (원)'}
           <NumberInput value={dividendPerShareInput} onChange={setDividendPerShareInput} placeholder="없으면 비워두세요" />

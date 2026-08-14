@@ -164,6 +164,33 @@ function migrateTransactionsFxRate(db: Database.Database): void {
   `)
 }
 
+/** 보유종목 시세 소스에 'naver_gold'(네이버 국내 금시세, 1g 기준) 추가를 위한 CHECK 재생성 */
+function migrateHoldingsPriceSourceGold(db: Database.Database): void {
+  db.exec(`
+    ALTER TABLE holdings RENAME TO holdings_old;
+
+    CREATE TABLE holdings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      account_id INTEGER NOT NULL REFERENCES accounts(id),
+      name TEXT NOT NULL,
+      price_symbol TEXT,
+      price_source TEXT CHECK (price_source IN ('coingecko','naver','yahoo','naver_gold') OR price_source IS NULL),
+      is_archived INTEGER NOT NULL DEFAULT 0,
+      dividend_per_share REAL,
+      dividend_cycle_type TEXT,
+      dividend_months TEXT,
+      dividend_ex_day INTEGER,
+      dividend_pay_day INTEGER,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    INSERT INTO holdings SELECT * FROM holdings_old;
+    DROP TABLE holdings_old;
+
+    CREATE INDEX IF NOT EXISTS idx_holdings_account ON holdings(account_id);
+  `)
+}
+
 export const MIGRATIONS: Migration[] = [
   { version: 1, up: migrateTransactionsAdjustCash },
   { version: 2, up: migrateYouthSavingsLabel },
@@ -172,7 +199,8 @@ export const MIGRATIONS: Migration[] = [
   { version: 5, up: migrateHoldingsDividendColumns },
   { version: 6, up: migrateHoldingsDividendDayColumns },
   { version: 7, up: migrateTransactionsSortOrder },
-  { version: 8, up: migrateTransactionsFxRate }
+  { version: 8, up: migrateTransactionsFxRate },
+  { version: 9, up: migrateHoldingsPriceSourceGold }
 ]
 
 export const LATEST_SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1].version
