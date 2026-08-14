@@ -191,6 +191,97 @@ function migrateHoldingsPriceSourceGold(db: Database.Database): void {
   `)
 }
 
+/**
+ * v9(migrateHoldingsPriceSourceGold) 최초 배포판은 foreign_keys=ON 상태에서 실행되어,
+ * holdings RENAME 시 SQLite가 transactions/price_snapshots의 REFERENCES holdings(id)를
+ * 자동으로 REFERENCES holdings_old(id)로 바꿔버렸고, 그 뒤 마이그레이션이 실패해 롤백됐을 때도
+ * 이 FK 재작성만은 되돌아가지 않는 경우가 있었다(그 결과 "no such table: holdings_old" 에러로
+ * 거래 저장이 전부 막힘). 이미 이 상태로 굳어버린 DB를 감지해서 REFERENCES holdings(id)로
+ * 복구한다 - 정상 DB(오염 안 됨)면 아무 것도 하지 않는다.
+ */
+function migrateRepairHoldingsOldFkReference(db: Database.Database): void {
+  const isCorrupted = (table: string): boolean => {
+    const row = db.prepare(`SELECT sql FROM sqlite_master WHERE name = ?`).get(table) as
+      | { sql: string }
+      | undefined
+    return !!row?.sql.includes('holdings_old')
+  }
+
+  if (isCorrupted('transactions')) {
+    db.exec(`
+      ALTER TABLE transactions RENAME TO transactions_old;
+
+      CREATE TABLE transactions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        account_id INTEGER NOT NULL REFERENCES accounts(id),
+        holding_id INTEGER REFERENCES holdings(id),
+        type TEXT NOT NULL CHECK (type IN ('DEPOSIT','WITHDRAWAL','BUY','SELL','ADJUST','DIVIDEND','CLOSE')),
+        date TEXT NOT NULL,
+        quantity REAL,
+        price REAL,
+        amount REAL,
+        realized_pnl REAL,
+        note TEXT,
+        sort_order INTEGER,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        fx_rate REAL,
+        realized_pnl_krw REAL,
+        CHECK (
+          (type IN ('DEPOSIT','WITHDRAWAL','DIVIDEND','CLOSE')
+             AND amount IS NOT NULL AND amount > 0
+             AND quantity IS NULL AND price IS NULL AND realized_pnl IS NULL)
+          OR
+          (type = 'BUY'
+             AND quantity IS NOT NULL AND quantity > 0
+             AND price IS NOT NULL AND price > 0
+             AND amount IS NULL AND realized_pnl IS NULL)
+          OR
+          (type = 'ADJUST' AND realized_pnl IS NULL AND (
+            (quantity IS NOT NULL AND quantity > 0
+               AND price IS NOT NULL AND price > 0
+               AND amount IS NULL)
+            OR
+            (amount IS NOT NULL AND amount > 0
+               AND quantity IS NULL AND price IS NULL)
+          ))
+          OR
+          (type = 'SELL'
+             AND quantity IS NOT NULL AND quantity > 0
+             AND price IS NOT NULL AND price > 0
+             AND amount IS NULL AND realized_pnl IS NOT NULL)
+        )
+      );
+
+      INSERT INTO transactions SELECT * FROM transactions_old;
+      DROP TABLE transactions_old;
+
+      CREATE INDEX IF NOT EXISTS idx_tx_account_date ON transactions(account_id, date);
+      CREATE INDEX IF NOT EXISTS idx_tx_holding_date ON transactions(holding_id, date);
+    `)
+  }
+
+  if (isCorrupted('price_snapshots')) {
+    db.exec(`
+      ALTER TABLE price_snapshots RENAME TO price_snapshots_old;
+
+      CREATE TABLE price_snapshots (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        holding_id INTEGER NOT NULL REFERENCES holdings(id),
+        year_month TEXT NOT NULL,
+        price REAL NOT NULL,
+        source TEXT,
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        UNIQUE(holding_id, year_month)
+      );
+
+      INSERT INTO price_snapshots SELECT * FROM price_snapshots_old;
+      DROP TABLE price_snapshots_old;
+
+      CREATE INDEX IF NOT EXISTS idx_snapshots_holding_month ON price_snapshots(holding_id, year_month);
+    `)
+  }
+}
+
 export const MIGRATIONS: Migration[] = [
   { version: 1, up: migrateTransactionsAdjustCash },
   { version: 2, up: migrateYouthSavingsLabel },
@@ -200,7 +291,8 @@ export const MIGRATIONS: Migration[] = [
   { version: 6, up: migrateHoldingsDividendDayColumns },
   { version: 7, up: migrateTransactionsSortOrder },
   { version: 8, up: migrateTransactionsFxRate },
-  { version: 9, up: migrateHoldingsPriceSourceGold }
+  { version: 9, up: migrateHoldingsPriceSourceGold },
+  { version: 10, up: migrateRepairHoldingsOldFkReference }
 ]
 
 export const LATEST_SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1].version
