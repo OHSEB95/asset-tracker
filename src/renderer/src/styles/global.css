@@ -401,6 +401,9 @@ tr.row-type-foreign-stock {
 tr.row-type-domestic-stock {
   background: #eefbf1;
 }
+tr.row-type-gold {
+  background: #faf1d6;
+}
 tr.row-type-youth-savings {
   background: #fff8e8;
 }

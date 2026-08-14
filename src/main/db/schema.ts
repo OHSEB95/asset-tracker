@@ -99,9 +99,10 @@ export const DEFAULT_ACCOUNT_TYPES: Array<{
 }> = [
   { code: 'FOREIGN_STOCK', labelKo: '해외주식', sortOrder: 1 },
   { code: 'DOMESTIC_STOCK', labelKo: '국내주식', sortOrder: 2 },
-  { code: 'YOUTH_SAVINGS', labelKo: '안전자산', sortOrder: 3 },
-  { code: 'PENSION_FUND', labelKo: '연금저축펀드', sortOrder: 4 },
-  { code: 'IRP', labelKo: 'IRP', sortOrder: 5 },
-  { code: 'ISA', labelKo: 'ISA', sortOrder: 6 },
-  { code: 'BITCOIN', labelKo: '비트코인', sortOrder: 7 }
+  { code: 'GOLD', labelKo: '금', sortOrder: 3 },
+  { code: 'YOUTH_SAVINGS', labelKo: '안전자산', sortOrder: 4 },
+  { code: 'PENSION_FUND', labelKo: '연금저축펀드', sortOrder: 5 },
+  { code: 'IRP', labelKo: 'IRP', sortOrder: 6 },
+  { code: 'ISA', labelKo: 'ISA', sortOrder: 7 },
+  { code: 'BITCOIN', labelKo: '비트코인', sortOrder: 8 }
 ]

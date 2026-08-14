@@ -1,6 +1,7 @@
 const TYPE_ROW_CLASS: Record<string, string> = {
   해외주식: 'row-type-foreign-stock',
   국내주식: 'row-type-domestic-stock',
+  금: 'row-type-gold',
   안전자산: 'row-type-youth-savings',
   연금저축펀드: 'row-type-pension-fund',
   IRP: 'row-type-irp',
