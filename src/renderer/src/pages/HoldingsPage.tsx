@@ -211,12 +211,16 @@ function HoldingsPage(): React.JSX.Element {
         if (r.holdingId == null || r.avgCost == null) continue
         const editedStr = avgCostEdits[r.holdingId]
         if (editedStr == null || editedStr.trim() === '') continue
+        // 편집 모드 진입 시 넣어준 초기값과 문자열 그대로 같으면 "안 건드린" 것으로 본다.
+        // 실제 평단가(소수점이 긴 값)와 화면에 반올림해 보여준 초기값을 숫자로 비교하면
+        // 반올림 오차 때문에 손 안 댄 행도 "바뀐 값"으로 오인될 수 있어서 문자열로 비교한다.
+        const originalStr = r.currency === 'USD' ? r.avgCost.toFixed(2) : String(Math.round(r.avgCost))
+        if (editedStr === originalStr) continue
         const parsed = parseFloat(editedStr)
         if (!Number.isFinite(parsed)) {
           setAvgCostError(`${r.label}: 숫자를 입력해주세요.`)
           return
         }
-        if (Math.abs(parsed - r.avgCost) < 0.001) continue
         const result = await window.api.holdings.setAvgCost(r.holdingId, parsed)
         if ('error' in result) {
           setAvgCostError(`${r.label}: ${result.error}`)
