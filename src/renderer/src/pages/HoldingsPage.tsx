@@ -3,7 +3,7 @@ import { useAccountsContext } from '../state/AccountsContext'
 import type { PortfolioSnapshot, PortfolioRow, TransactionInput } from '@shared/types'
 import { typeRowClass } from '../utils/accountTypeStyle'
 import { EyeIcon, EyeOffIcon } from '../components/icons/EyeIcons'
-import { PencilIcon } from '../components/icons/ActionIcons'
+import { PencilIcon, SaveIcon } from '../components/icons/ActionIcons'
 
 function formatMoney(value: number | null, currency: 'KRW' | 'USD'): string {
   if (value == null) return '-'
@@ -202,12 +202,6 @@ function HoldingsPage(): React.JSX.Element {
     setAvgCostError(null)
   }
 
-  function cancelAvgCostEdit(): void {
-    setAvgCostEditMode(false)
-    setAvgCostEdits({})
-    setAvgCostError(null)
-  }
-
   async function saveAvgCostEdits(): Promise<void> {
     if (!portfolio) return
     setAvgCostSaving(true)
@@ -342,17 +336,16 @@ function HoldingsPage(): React.JSX.Element {
                 {!hideValues && <th className="col-qty">보유수량</th>}
                 <th className="col-avg-cost">
                   평단가
-                  {!avgCostEditMode && (
-                    <button
-                      type="button"
-                      className="row-icon-button avg-cost-edit-toggle"
-                      title="평단가 수정"
-                      aria-label="평단가 수정"
-                      onClick={startAvgCostEdit}
-                    >
-                      <PencilIcon />
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    className="row-icon-button avg-cost-edit-toggle"
+                    title={avgCostEditMode ? '평단가 저장' : '평단가 수정'}
+                    aria-label={avgCostEditMode ? '평단가 저장' : '평단가 수정'}
+                    onClick={avgCostEditMode ? saveAvgCostEdits : startAvgCostEdit}
+                    disabled={avgCostSaving}
+                  >
+                    {avgCostEditMode ? <SaveIcon /> : <PencilIcon />}
+                  </button>
                 </th>
                 <th className="price-col-narrow">현재가</th>
                 {!hideValues && (
@@ -422,21 +415,9 @@ function HoldingsPage(): React.JSX.Element {
         )}
         {cashEditError && <p className="error-text">{cashEditError}</p>}
         {avgCostError && <p className="error-text">{avgCostError}</p>}
-        <div className="holdings-footer-row">
-          <p className="prices-updated-at">
-            {portfolio?.pricesUpdatedAt ? `현재가 마지막 갱신: ${formatUpdatedAt(portfolio.pricesUpdatedAt)}` : ''}
-          </p>
-          {avgCostEditMode && (
-            <div className="avg-cost-edit-actions">
-              <button type="button" onClick={saveAvgCostEdits} disabled={avgCostSaving}>
-                {avgCostSaving ? '저장 중…' : '저장'}
-              </button>
-              <button type="button" onClick={cancelAvgCostEdit} disabled={avgCostSaving}>
-                취소
-              </button>
-            </div>
-          )}
-        </div>
+        {portfolio?.pricesUpdatedAt && (
+          <p className="prices-updated-at">현재가 마지막 갱신: {formatUpdatedAt(portfolio.pricesUpdatedAt)}</p>
+        )}
       </section>
     </div>
   )
