@@ -29,7 +29,9 @@ const api = {
       ipcRenderer.invoke(IPC.HOLDINGS_UPDATE, id, input),
     archive: (id: number, archived: boolean) =>
       ipcRenderer.invoke(IPC.HOLDINGS_ARCHIVE, id, archived),
-    snapshot: (holdingId: number) => ipcRenderer.invoke(IPC.HOLDINGS_SNAPSHOT, holdingId)
+    snapshot: (holdingId: number) => ipcRenderer.invoke(IPC.HOLDINGS_SNAPSHOT, holdingId),
+    setAvgCost: (holdingId: number, targetAvgCost: number) =>
+      ipcRenderer.invoke(IPC.HOLDINGS_SET_AVG_COST, holdingId, targetAvgCost)
   },
   transactions: {
     list: (filter: TransactionListFilter) => ipcRenderer.invoke(IPC.TRANSACTIONS_LIST, filter),

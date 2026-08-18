@@ -10,6 +10,7 @@ export const IPC = {
   HOLDINGS_UPDATE: 'holdings:update',
   HOLDINGS_ARCHIVE: 'holdings:archive',
   HOLDINGS_SNAPSHOT: 'holdings:snapshot',
+  HOLDINGS_SET_AVG_COST: 'holdings:setAvgCost',
 
   TRANSACTIONS_LIST: 'transactions:list',
   TRANSACTIONS_CREATE: 'transactions:create',

@@ -3,6 +3,7 @@ import { useAccountsContext } from '../state/AccountsContext'
 import type { PortfolioSnapshot, PortfolioRow, TransactionInput } from '@shared/types'
 import { typeRowClass } from '../utils/accountTypeStyle'
 import { EyeIcon, EyeOffIcon } from '../components/icons/EyeIcons'
+import { PencilIcon } from '../components/icons/ActionIcons'
 
 function formatMoney(value: number | null, currency: 'KRW' | 'USD'): string {
   if (value == null) return '-'
@@ -77,6 +78,10 @@ function HoldingsPage(): React.JSX.Element {
   const [cashSaving, setCashSaving] = useState(false)
   const [cashEditError, setCashEditError] = useState<string | null>(null)
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'error'>('idle')
+  const [avgCostEditMode, setAvgCostEditMode] = useState(false)
+  const [avgCostEdits, setAvgCostEdits] = useState<Record<number, string>>({})
+  const [avgCostSaving, setAvgCostSaving] = useState(false)
+  const [avgCostError, setAvgCostError] = useState<string | null>(null)
 
   async function refresh(): Promise<void> {
     const data = await window.api.dashboard.getPortfolioSnapshot(
@@ -184,6 +189,54 @@ function HoldingsPage(): React.JSX.Element {
     setTimeout(() => setCopyStatus('idle'), 2000)
   }
 
+  function startAvgCostEdit(): void {
+    if (!portfolio) return
+    const initial: Record<number, string> = {}
+    for (const r of portfolio.rows) {
+      if (r.holdingId != null && r.avgCost != null) {
+        initial[r.holdingId] = r.currency === 'USD' ? r.avgCost.toFixed(2) : String(Math.round(r.avgCost))
+      }
+    }
+    setAvgCostEdits(initial)
+    setAvgCostEditMode(true)
+    setAvgCostError(null)
+  }
+
+  function cancelAvgCostEdit(): void {
+    setAvgCostEditMode(false)
+    setAvgCostEdits({})
+    setAvgCostError(null)
+  }
+
+  async function saveAvgCostEdits(): Promise<void> {
+    if (!portfolio) return
+    setAvgCostSaving(true)
+    setAvgCostError(null)
+    try {
+      for (const r of portfolio.rows) {
+        if (r.holdingId == null || r.avgCost == null) continue
+        const editedStr = avgCostEdits[r.holdingId]
+        if (editedStr == null || editedStr.trim() === '') continue
+        const parsed = parseFloat(editedStr)
+        if (!Number.isFinite(parsed)) {
+          setAvgCostError(`${r.label}: 숫자를 입력해주세요.`)
+          return
+        }
+        if (Math.abs(parsed - r.avgCost) < 0.001) continue
+        const result = await window.api.holdings.setAvgCost(r.holdingId, parsed)
+        if ('error' in result) {
+          setAvgCostError(`${r.label}: ${result.error}`)
+          return
+        }
+      }
+      setAvgCostEditMode(false)
+      setAvgCostEdits({})
+      await refresh()
+    } finally {
+      setAvgCostSaving(false)
+    }
+  }
+
   return (
     <div className="page">
       <section className="card">
@@ -287,7 +340,20 @@ function HoldingsPage(): React.JSX.Element {
                 <th className="col-type">구분</th>
                 <th className="col-product">종목</th>
                 {!hideValues && <th className="col-qty">보유수량</th>}
-                <th className="col-avg-cost">평단가</th>
+                <th className="col-avg-cost">
+                  평단가
+                  {!avgCostEditMode && (
+                    <button
+                      type="button"
+                      className="row-icon-button avg-cost-edit-toggle"
+                      title="평단가 수정"
+                      aria-label="평단가 수정"
+                      onClick={startAvgCostEdit}
+                    >
+                      <PencilIcon />
+                    </button>
+                  )}
+                </th>
                 <th className="price-col-narrow">현재가</th>
                 {!hideValues && (
                   <>
@@ -307,7 +373,22 @@ function HoldingsPage(): React.JSX.Element {
                   {!hideValues && (
                     <td className="col-qty">{r.quantity != null ? r.quantity.toLocaleString() : '-'}</td>
                   )}
-                  <td className="col-avg-cost">{r.avgCost != null ? formatMoney(r.avgCost, r.currency) : '-'}</td>
+                  <td className="col-avg-cost">
+                    {avgCostEditMode && r.holdingId != null && r.avgCost != null ? (
+                      <input
+                        value={avgCostEdits[r.holdingId] ?? ''}
+                        onChange={(e) =>
+                          setAvgCostEdits((prev) => ({ ...prev, [r.holdingId!]: e.target.value }))
+                        }
+                        className="avg-cost-edit-input"
+                        disabled={avgCostSaving}
+                      />
+                    ) : r.avgCost != null ? (
+                      formatMoney(r.avgCost, r.currency)
+                    ) : (
+                      '-'
+                    )}
+                  </td>
                   <td className="price-col-narrow">{r.currentPrice != null ? formatMoney(r.currentPrice, r.currency) : '-'}</td>
                   {!hideValues && (
                     <>
@@ -340,9 +421,22 @@ function HoldingsPage(): React.JSX.Element {
           </table>
         )}
         {cashEditError && <p className="error-text">{cashEditError}</p>}
-        {portfolio?.pricesUpdatedAt && (
-          <p className="prices-updated-at">현재가 마지막 갱신: {formatUpdatedAt(portfolio.pricesUpdatedAt)}</p>
-        )}
+        {avgCostError && <p className="error-text">{avgCostError}</p>}
+        <div className="holdings-footer-row">
+          <p className="prices-updated-at">
+            {portfolio?.pricesUpdatedAt ? `현재가 마지막 갱신: ${formatUpdatedAt(portfolio.pricesUpdatedAt)}` : ''}
+          </p>
+          {avgCostEditMode && (
+            <div className="avg-cost-edit-actions">
+              <button type="button" onClick={saveAvgCostEdits} disabled={avgCostSaving}>
+                {avgCostSaving ? '저장 중…' : '저장'}
+              </button>
+              <button type="button" onClick={cancelAvgCostEdit} disabled={avgCostSaving}>
+                취소
+              </button>
+            </div>
+          )}
+        </div>
       </section>
     </div>
   )

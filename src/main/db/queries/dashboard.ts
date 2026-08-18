@@ -376,6 +376,7 @@ export async function getPortfolioSnapshot(
         hasHoldingRows = true
         rows.push({
           kind: 'holding',
+          holdingId: h.id,
           accountId: acct.id,
           accountTypeLabel: acct.label_ko,
           label: h.name,
@@ -412,6 +413,7 @@ export async function getPortfolioSnapshot(
             : null
       rows.push({
         kind: 'holding',
+        holdingId: h.id,
         accountId: acct.id,
         accountTypeLabel: acct.label_ko,
         label: h.name,
@@ -430,6 +432,7 @@ export async function getPortfolioSnapshot(
     if (!isSavings) {
       rows.push({
         kind: 'cash',
+        holdingId: null,
         accountId: acct.id,
         accountTypeLabel: acct.label_ko,
         label: hasHoldingRows ? `${acct.name} 예수금` : acct.name,
@@ -447,6 +450,7 @@ export async function getPortfolioSnapshot(
       // 특정 상품(holding)에 연결되지 않은 입금/출금 (세부 종목 미등록 상태로 거래한 경우)
       rows.push({
         kind: 'cash',
+        holdingId: null,
         accountId: acct.id,
         accountTypeLabel: acct.label_ko,
         label: hasHoldingRows ? `${acct.name} (미분류)` : acct.name,

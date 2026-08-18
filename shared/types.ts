@@ -138,6 +138,7 @@ export interface ExchangeRateInfo {
 
 export interface PortfolioRow {
   kind: 'holding' | 'cash'
+  holdingId: number | null
   accountId: number
   accountTypeLabel: string
   label: string

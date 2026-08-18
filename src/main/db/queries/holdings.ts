@@ -200,6 +200,46 @@ export function getHoldingQuantityAsOf(holdingId: number, asOfDate: string): num
   return replayHoldingState(rows.map(rowToTransaction)).quantity
 }
 
+/**
+ * 평단가를 사용자가 지정한 값에 정확히 맞춘다 - 가장 최근 매수/정리(BUY/ADJUST) 거래의 단가를
+ * 역산해서 조정하는 방식. 실제 체결가가 입력 과정에서 반올림되며 생기는 미세한 오차를 사용자가
+ * 직접 바로잡을 수 있게 해줌. 가장 최근 거래가 매도(SELL)면 그 매도의 실현손익이 그 이전 매수
+ * 단가에 의존하므로(역산 대상이 아니라서) 자동 조정을 지원하지 않는다.
+ */
+export function setHoldingAvgCost(holdingId: number, targetAvgCost: number): void {
+  const db = getDatabase()
+  if (!Number.isFinite(targetAvgCost) || targetAvgCost <= 0) {
+    throw new Error('평단가는 0보다 큰 숫자여야 합니다.')
+  }
+
+  const rows = db
+    .prepare(
+      `SELECT * FROM transactions WHERE holding_id = ? AND type IN ('BUY','SELL','ADJUST') ORDER BY date ASC, id ASC`
+    )
+    .all(holdingId) as any[]
+  const transactions = rows.map(rowToTransaction)
+
+  const lastTx = transactions[transactions.length - 1]
+  if (!lastTx || lastTx.type === 'SELL') {
+    throw new Error(
+      '가장 최근 거래가 매도라 평단가를 자동으로 맞출 수 없습니다. 최근 매수/정리 내역이 있어야 합니다.'
+    )
+  }
+
+  const priorState = replayHoldingState(transactions.slice(0, -1))
+  const lastQty = lastTx.quantity!
+  const priorQty = priorState.quantity
+  const priorAvgCost = priorState.avgCost ?? 0
+  const finalQty = priorQty + lastQty
+
+  const neededPrice = (targetAvgCost * finalQty - priorQty * priorAvgCost) / lastQty
+  if (!Number.isFinite(neededPrice) || neededPrice <= 0) {
+    throw new Error('가장 최근 매수 내역만 조정해서는 이 평단가를 만들 수 없습니다.')
+  }
+
+  db.prepare(`UPDATE transactions SET price = ? WHERE id = ?`).run(neededPrice, lastTx.id)
+}
+
 export function upsertPriceSnapshot(input: PriceSnapshotInput): void {
   const db = getDatabase()
   db.prepare(

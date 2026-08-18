@@ -451,6 +451,29 @@ tr.tx-row-dividend {
   color: var(--muted);
 }
 
+.holdings-footer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.avg-cost-edit-toggle {
+  vertical-align: middle;
+  margin-left: 4px;
+}
+
+.avg-cost-edit-input {
+  width: 90px;
+  padding: 3px 6px;
+  font-size: 12px;
+}
+
+.avg-cost-edit-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .col-type {
   width: 8%;
 }

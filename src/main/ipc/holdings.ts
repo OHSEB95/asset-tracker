@@ -6,9 +6,14 @@ import {
   createHolding,
   getHoldingSnapshot,
   listHoldingsForAccount,
+  setHoldingAvgCost,
   updateHolding,
   upsertPriceSnapshot
 } from '../db/queries'
+
+function toErrorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err)
+}
 
 export function registerHoldingsIpc(): void {
   ipcMain.handle(IPC.HOLDINGS_LIST_FOR_ACCOUNT, (_e, accountId: number, includeArchived = false) =>
@@ -26,6 +31,15 @@ export function registerHoldingsIpc(): void {
   )
 
   ipcMain.handle(IPC.HOLDINGS_SNAPSHOT, (_e, holdingId: number) => getHoldingSnapshot(holdingId))
+
+  ipcMain.handle(IPC.HOLDINGS_SET_AVG_COST, (_e, holdingId: number, targetAvgCost: number) => {
+    try {
+      setHoldingAvgCost(holdingId, targetAvgCost)
+      return { ok: true }
+    } catch (err) {
+      return { error: toErrorMessage(err) }
+    }
+  })
 
   ipcMain.handle(IPC.PRICE_SNAPSHOTS_UPSERT, (_e, input: PriceSnapshotInput) =>
     upsertPriceSnapshot(input)

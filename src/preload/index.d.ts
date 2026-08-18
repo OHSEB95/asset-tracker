@@ -41,6 +41,7 @@ export interface Api {
     update(id: number, input: HoldingInput): Promise<Holding>
     archive(id: number, archived: boolean): Promise<void>
     snapshot(holdingId: number): Promise<HoldingSnapshot>
+    setAvgCost(holdingId: number, targetAvgCost: number): Promise<{ ok: true } | { error: string }>
   }
   transactions: {
     list(filter: TransactionListFilter): Promise<Transaction[]>
