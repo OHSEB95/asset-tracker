@@ -150,6 +150,8 @@ function DashboardPage({
       )
     : []
 
+  const yearRealizedPnlTotal = rows.reduce((sum, r) => sum + r.realizedPnl, 0)
+
   return (
     <div className="dashboard-page">
       <section className="card dashboard-topbar">
@@ -245,7 +247,9 @@ function DashboardPage({
           </div>
           <div className="split-chart-half">
             <div className="section-header">
-              <h3>{new Date().getFullYear()}년 매도손익</h3>
+              <h3>
+                {new Date().getFullYear()}년 매도손익 : {formatKrw(yearRealizedPnlTotal)}
+              </h3>
               {!accountTypeCode && (
                 <button
                   type="button"
