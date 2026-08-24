@@ -312,6 +312,10 @@ export async function getMonthlySummary(filter: DashboardFilter): Promise<Monthl
     }
   }
 
+  // "매도손익" 차트를 거래내역/자산은 안 건드리고 월별로 수동 보정할 수 있게 함 - 계좌유형으로
+  // 필터링된 부분 뷰에는 적용하지 않는다(그 보정값이 어느 계좌 몫인지 알 수 없어서), 전체 뷰에만 적용.
+  const realizedPnlOverrides = filter.accountTypeCode ? {} : getMonthlyRealizedPnlOverrides()
+
   return months.map((yearMonth) => {
     const flow = flowByMonth.get(yearMonth)
     return {
@@ -319,11 +323,35 @@ export async function getMonthlySummary(filter: DashboardFilter): Promise<Monthl
       contribution: flow?.contribution ?? 0,
       dividends: flow?.dividends ?? 0,
       projectedDividends: yearMonth < nowMonth ? null : (projectedByMonth.get(yearMonth) ?? 0),
-      realizedPnl: flow?.realizedPnl ?? 0,
+      realizedPnl: realizedPnlOverrides[yearMonth] ?? flow?.realizedPnl ?? 0,
       valuation: valuationByMonth.get(yearMonth) ?? 0,
       principal: principalByMonth.get(yearMonth) ?? 0
     }
   })
+}
+
+export function getMonthlyRealizedPnlOverrides(): Record<string, number> {
+  const db = getDatabase()
+  const rows = db
+    .prepare(`SELECT year_month, amount FROM monthly_realized_pnl_overrides`)
+    .all() as Array<{ year_month: string; amount: number }>
+  const map: Record<string, number> = {}
+  for (const row of rows) map[row.year_month] = row.amount
+  return map
+}
+
+/** amount가 null이면 보정을 지우고 원래 계산값으로 되돌린다. */
+export function setMonthlyRealizedPnlOverride(yearMonth: string, amount: number | null): void {
+  const db = getDatabase()
+  if (amount == null) {
+    db.prepare(`DELETE FROM monthly_realized_pnl_overrides WHERE year_month = ?`).run(yearMonth)
+    return
+  }
+  db.prepare(
+    `INSERT INTO monthly_realized_pnl_overrides (year_month, amount, updated_at)
+     VALUES (?, ?, datetime('now'))
+     ON CONFLICT(year_month) DO UPDATE SET amount = excluded.amount, updated_at = datetime('now')`
+  ).run(yearMonth, amount)
 }
 
 export async function getPortfolioSnapshot(

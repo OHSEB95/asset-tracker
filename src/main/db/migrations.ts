@@ -282,6 +282,17 @@ function migrateRepairHoldingsOldFkReference(db: Database.Database): void {
   }
 }
 
+/** 대시보드 "매도손익" 차트를 거래내역/자산은 안 건드리고 월별로 수동 보정할 수 있는 테이블 추가 */
+function migrateMonthlyRealizedPnlOverrides(db: Database.Database): void {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS monthly_realized_pnl_overrides (
+      year_month TEXT PRIMARY KEY,
+      amount REAL NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `)
+}
+
 export const MIGRATIONS: Migration[] = [
   { version: 1, up: migrateTransactionsAdjustCash },
   { version: 2, up: migrateYouthSavingsLabel },
@@ -292,7 +303,8 @@ export const MIGRATIONS: Migration[] = [
   { version: 7, up: migrateTransactionsSortOrder },
   { version: 8, up: migrateTransactionsFxRate },
   { version: 9, up: migrateHoldingsPriceSourceGold },
-  { version: 10, up: migrateRepairHoldingsOldFkReference }
+  { version: 10, up: migrateRepairHoldingsOldFkReference },
+  { version: 11, up: migrateMonthlyRealizedPnlOverrides }
 ]
 
 export const LATEST_SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1].version

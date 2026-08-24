@@ -29,6 +29,7 @@ export const IPC = {
 
   DASHBOARD_GET_MONTHLY_SUMMARY: 'dashboard:getMonthlySummary',
   DASHBOARD_GET_PORTFOLIO_SNAPSHOT: 'dashboard:getPortfolioSnapshot',
+  DASHBOARD_SET_REALIZED_PNL_OVERRIDE: 'dashboard:setRealizedPnlOverride',
 
   DIVIDENDS_GET_OVERVIEW: 'dividends:getOverview',
   DIVIDENDS_GET_PAYOUTS_FOR_MONTH: 'dividends:getPayoutsForMonth',

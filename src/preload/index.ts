@@ -60,7 +60,9 @@ const api = {
     getMonthlySummary: (filter: DashboardFilter) =>
       ipcRenderer.invoke(IPC.DASHBOARD_GET_MONTHLY_SUMMARY, filter),
     getPortfolioSnapshot: (accountTypeCode?: string | string[] | null) =>
-      ipcRenderer.invoke(IPC.DASHBOARD_GET_PORTFOLIO_SNAPSHOT, accountTypeCode)
+      ipcRenderer.invoke(IPC.DASHBOARD_GET_PORTFOLIO_SNAPSHOT, accountTypeCode),
+    setRealizedPnlOverride: (yearMonth: string, amount: number | null) =>
+      ipcRenderer.invoke(IPC.DASHBOARD_SET_REALIZED_PNL_OVERRIDE, yearMonth, amount)
   },
   dividends: {
     getOverview: (year: number, accountTypeCode?: string | null) =>

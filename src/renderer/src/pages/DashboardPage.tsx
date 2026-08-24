@@ -7,6 +7,7 @@ import SellPnlChart from '../components/charts/SellPnlChart'
 import AssetAllocationChart, { type AllocationSlice } from '../components/charts/AssetAllocationChart'
 import { typeRowClass } from '../utils/accountTypeStyle'
 import { EyeIcon, EyeOffIcon } from '../components/icons/EyeIcons'
+import { PencilIcon, SaveIcon } from '../components/icons/ActionIcons'
 
 function startOfCurrentYear(): string {
   return `${new Date().getFullYear()}-01`
@@ -41,6 +42,19 @@ function DashboardPage({
   const [portfolio, setPortfolio] = useState<PortfolioSnapshot | null>(null)
   const [loading, setLoading] = useState(true)
   const [hideValues, setHideValues] = useState(false)
+  const [pnlEditMode, setPnlEditMode] = useState(false)
+  const [pnlEdits, setPnlEdits] = useState<Record<string, string>>({})
+  const [pnlSaving, setPnlSaving] = useState(false)
+  const [pnlError, setPnlError] = useState<string | null>(null)
+
+  async function refreshRows(): Promise<void> {
+    const data = await window.api.dashboard.getMonthlySummary({
+      from,
+      to,
+      accountTypeCode: accountTypeCode || null
+    })
+    setRows(data)
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -57,6 +71,44 @@ function DashboardPage({
       cancelled = true
     }
   }, [from, to, accountTypeCode])
+
+  function startPnlEdit(): void {
+    const initial: Record<string, string> = {}
+    for (const r of rows) {
+      initial[r.yearMonth] = String(Math.round(r.realizedPnl))
+    }
+    setPnlEdits(initial)
+    setPnlEditMode(true)
+    setPnlError(null)
+  }
+
+  async function savePnlEdits(): Promise<void> {
+    setPnlSaving(true)
+    setPnlError(null)
+    try {
+      for (const r of rows) {
+        const editedStr = pnlEdits[r.yearMonth]
+        if (editedStr == null || editedStr.trim() === '') continue
+        const originalStr = String(Math.round(r.realizedPnl))
+        if (editedStr === originalStr) continue
+        const parsed = parseFloat(editedStr)
+        if (!Number.isFinite(parsed)) {
+          setPnlError(`${r.yearMonth}: 숫자를 입력해주세요.`)
+          return
+        }
+        const result = await window.api.dashboard.setRealizedPnlOverride(r.yearMonth, parsed)
+        if ('error' in result) {
+          setPnlError(`${r.yearMonth}: ${result.error}`)
+          return
+        }
+      }
+      setPnlEditMode(false)
+      setPnlEdits({})
+      await refreshRows()
+    } finally {
+      setPnlSaving(false)
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -192,10 +244,44 @@ function DashboardPage({
             </div>
           </div>
           <div className="split-chart-half">
-            <h3>{new Date().getFullYear()}년 매도손익</h3>
-            <div className="chart-body">
-              {rows.length > 0 ? <SellPnlChart data={rows} /> : <p className="muted">데이터가 없습니다.</p>}
+            <div className="section-header">
+              <h3>{new Date().getFullYear()}년 매도손익</h3>
+              {!accountTypeCode && (
+                <button
+                  type="button"
+                  className="row-icon-button"
+                  title={pnlEditMode ? '매도손익 저장' : '매도손익 수동 보정'}
+                  aria-label={pnlEditMode ? '매도손익 저장' : '매도손익 수동 보정'}
+                  onClick={pnlEditMode ? savePnlEdits : startPnlEdit}
+                  disabled={pnlSaving}
+                >
+                  {pnlEditMode ? <SaveIcon /> : <PencilIcon />}
+                </button>
+              )}
             </div>
+            <div className="chart-body">
+              {rows.length === 0 ? (
+                <p className="muted">데이터가 없습니다.</p>
+              ) : pnlEditMode ? (
+                <div className="pnl-edit-list">
+                  {rows.map((r) => (
+                    <label key={r.yearMonth} className="pnl-edit-row">
+                      <span>{Number(r.yearMonth.slice(5, 7))}월</span>
+                      <input
+                        value={pnlEdits[r.yearMonth] ?? ''}
+                        onChange={(e) =>
+                          setPnlEdits((prev) => ({ ...prev, [r.yearMonth]: e.target.value }))
+                        }
+                        disabled={pnlSaving}
+                      />
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <SellPnlChart data={rows} />
+              )}
+            </div>
+            {pnlError && <p className="error-text">{pnlError}</p>}
           </div>
         </section>
 

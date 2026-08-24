@@ -90,6 +90,12 @@ CREATE TABLE IF NOT EXISTS app_settings (
   key TEXT PRIMARY KEY,
   value TEXT
 );
+
+CREATE TABLE IF NOT EXISTS monthly_realized_pnl_overrides (
+  year_month TEXT PRIMARY KEY,
+  amount REAL NOT NULL,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 `
 
 export const DEFAULT_ACCOUNT_TYPES: Array<{

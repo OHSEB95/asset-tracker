@@ -67,6 +67,10 @@ export interface Api {
   dashboard: {
     getMonthlySummary(filter: DashboardFilter): Promise<MonthlySummaryRow[]>
     getPortfolioSnapshot(accountTypeCode?: string | string[] | null): Promise<PortfolioSnapshot>
+    setRealizedPnlOverride(
+      yearMonth: string,
+      amount: number | null
+    ): Promise<{ ok: true } | { error: string }>
   }
   dividends: {
     getOverview(year: number, accountTypeCode?: string | null): Promise<DividendOverview>
