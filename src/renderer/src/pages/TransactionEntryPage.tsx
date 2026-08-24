@@ -286,7 +286,8 @@ function TransactionEntryPage(): React.JSX.Element {
   // 종목 거래(매수/매도/정리) 저장 후 시세를 자동 조회해 이번 달 현재가로 저장해둔다.
   async function autoUpdateHoldingPrice(hId: number): Promise<void> {
     const holding = holdings.find((h) => h.id === hId)
-    if (!holding?.priceSymbol) return
+    // naver_gold는 종목별 심볼이 없는 소스라 priceSymbol이 아니라 priceSource 유무로 판단해야 한다.
+    if (!holding?.priceSource) return
     const result = await window.api.prices.fetch(hId)
     if ('error' in result) return
     await window.api.priceSnapshots.upsert({

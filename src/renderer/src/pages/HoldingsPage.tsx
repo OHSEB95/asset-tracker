@@ -101,10 +101,11 @@ function HoldingsPage(): React.JSX.Element {
     )
   }
 
-  // 종목코드가 있는 보유종목의 현재가는 API가 충분히 정확하게 내려주므로, 탭 진입 시
-  // 조용히 자동 조회해 이번 달 시세로 저장한다(사용자가 직접 입력할 필요 없음).
+  // 시세 소스가 설정된 보유종목의 현재가는 API가 충분히 정확하게 내려주므로, 탭 진입 시
+  // 조용히 자동 조회해 이번 달 시세로 저장한다(사용자가 직접 입력할 필요 없음). naver_gold는
+  // 종목별 심볼이 없는 소스라 priceSymbol이 아니라 priceSource 유무로 판단해야 한다.
   useEffect(() => {
-    const activeHoldings = holdings.filter((h) => !h.isArchived && h.priceSymbol)
+    const activeHoldings = holdings.filter((h) => !h.isArchived && h.priceSource)
     if (activeHoldings.length === 0) return
     const yearMonth = currentYearMonth()
     Promise.all(
